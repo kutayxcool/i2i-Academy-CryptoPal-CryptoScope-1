@@ -1,0 +1,12 @@
+-- CryptoPal - baslangic semasi
+-- Kisi 3 (External Data Provider / AI / Altyapi) burayi Kisi 2 ile birlikte netlestirip doldurur.
+-- docker-compose ilk ayaga kalktiginda bu klasordeki .sql dosyalari otomatik calisir.
+
+-- Ornek iskelet (alan adlarini ekiple netlestirdikten sonra guncelleyin):
+-- CREATE TABLE users (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     username VARCHAR(50) UNIQUE NOT NULL,
+--     password_hash VARCHAR(255) NOT NULL,
+--     balance NUMERIC(18,2) NOT NULL,
+--     created_at TIMESTAMP NOT NULL DEFAULT now()
+-- );
