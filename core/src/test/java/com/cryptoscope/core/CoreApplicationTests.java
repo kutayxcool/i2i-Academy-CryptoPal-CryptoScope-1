@@ -1,4 +1,4 @@
-package com.cryptoScope.core;
+package com.cryptoscope.core;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
