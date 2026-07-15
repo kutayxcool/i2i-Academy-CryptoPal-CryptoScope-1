@@ -2,6 +2,7 @@ package com.cryptoscope.core.common.error;
 
 import com.cryptoscope.core.common.exception.InvalidCredentialsException;
 import com.cryptoscope.core.common.exception.SessionStorageException;
+import com.cryptoscope.core.common.exception.UserNotFoundException;
 import com.cryptoscope.core.common.exception.UsernameAlreadyExistsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -44,7 +45,16 @@ public class GlobalExceptionHandler {
                 "Session service is temporarily unavailable"
         );
     }
-
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiErrorResponse handleUserNotFound(
+            UserNotFoundException exception
+    ) {
+        return ApiErrorResponse.of(
+                "USER_NOT_FOUND",
+                exception.getMessage()
+        );
+    }
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleValidation(
