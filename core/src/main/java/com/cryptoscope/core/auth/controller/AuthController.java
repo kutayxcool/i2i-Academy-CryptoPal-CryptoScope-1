@@ -1,5 +1,7 @@
 package com.cryptoscope.core.auth.controller;
 
+import com.cryptoscope.core.auth.dto.LoginRequest;
+import com.cryptoscope.core.auth.dto.LoginResponse;
 import com.cryptoscope.core.auth.dto.RegisterRequest;
 import com.cryptoscope.core.auth.dto.RegisterResponse;
 import com.cryptoscope.core.auth.service.AuthService;
@@ -27,5 +29,12 @@ public class AuthController {
             @Valid @RequestBody RegisterRequest request
     ) {
         return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return authService.login(request);
     }
 }
