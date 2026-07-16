@@ -7,6 +7,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.cryptoscope.core.common.exception.MarketPriceUnavailableException;
+import com.cryptoscope.core.common.exception.InsufficientBalanceException;
+import com.cryptoscope.core.common.exception.InvalidTradeAmountException;
+import com.cryptoscope.core.common.exception.UnsupportedAssetException;
+import com.cryptoscope.core.common.exception.InsufficientAssetBalanceException;
+
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -80,4 +85,47 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
     }
+    @ExceptionHandler(InsufficientBalanceException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleInsufficientBalance(
+            InsufficientBalanceException exception
+    ) {
+        return ApiErrorResponse.of(
+                "INSUFFICIENT_BALANCE",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(UnsupportedAssetException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleUnsupportedAsset(
+            UnsupportedAssetException exception
+    ) {
+        return ApiErrorResponse.of(
+                "UNSUPPORTED_ASSET",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(InvalidTradeAmountException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleInvalidTradeAmount(
+            InvalidTradeAmountException exception
+    ) {
+        return ApiErrorResponse.of(
+                "INVALID_TRADE_AMOUNT",
+                exception.getMessage()
+        );
+    }
+    @ExceptionHandler(InsufficientAssetBalanceException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleInsufficientAssetBalance(
+            InsufficientAssetBalanceException exception
+    ) {
+        return ApiErrorResponse.of(
+                "INSUFFICIENT_ASSET_BALANCE",
+                exception.getMessage()
+        );
+    }
+
 }
