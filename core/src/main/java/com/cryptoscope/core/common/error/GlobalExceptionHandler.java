@@ -11,7 +11,7 @@ import com.cryptoscope.core.common.exception.InsufficientBalanceException;
 import com.cryptoscope.core.common.exception.InvalidTradeAmountException;
 import com.cryptoscope.core.common.exception.UnsupportedAssetException;
 import com.cryptoscope.core.common.exception.InsufficientAssetBalanceException;
-
+import com.cryptoscope.core.common.exception.AiServiceException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -127,5 +127,14 @@ public class GlobalExceptionHandler {
                 exception.getMessage()
         );
     }
-
+    @ExceptionHandler(AiServiceException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiErrorResponse handleAiService(
+            AiServiceException exception
+    ) {
+        return ApiErrorResponse.of(
+                "AI_SERVICE_UNAVAILABLE",
+                "AI service is temporarily unavailable"
+        );
+    }
 }
