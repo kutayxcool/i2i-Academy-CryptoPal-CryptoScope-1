@@ -1,14 +1,12 @@
 package com.cryptoscope.core.common.error;
 
-import com.cryptoscope.core.common.exception.InvalidCredentialsException;
-import com.cryptoscope.core.common.exception.SessionStorageException;
-import com.cryptoscope.core.common.exception.UserNotFoundException;
-import com.cryptoscope.core.common.exception.UsernameAlreadyExistsException;
+import com.cryptoscope.core.common.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.cryptoscope.core.common.exception.MarketPriceUnavailableException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -70,6 +68,16 @@ public class GlobalExceptionHandler {
         return ApiErrorResponse.of(
                 "VALIDATION_ERROR",
                 message
+        );
+    }
+    @ExceptionHandler(MarketPriceUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiErrorResponse handleMarketPriceUnavailable(
+            MarketPriceUnavailableException exception
+    ) {
+        return ApiErrorResponse.of(
+                "MARKET_PRICES_UNAVAILABLE",
+                exception.getMessage()
         );
     }
 }
