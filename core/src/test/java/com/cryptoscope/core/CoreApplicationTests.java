@@ -5,7 +5,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(
 		properties = {
-				"app.market.scheduling.enabled=false"  //şimdilik çalışmaması daha iyi
+				"app.market.scheduling.enabled=false",
+				"app.market.history.scheduling.enabled=false"
 		}
 )
 class CoreApplicationTests {
