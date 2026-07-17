@@ -1,52 +1,22 @@
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import "../styles/AiChat.css";
-import { mockStarterMessages } from "../mock/mockData";
 import { useAuth } from "../context/AuthContext";
+import { askAi } from "../services/aiService";
 
 function AiChatPage() {
     const { user } = useAuth();
     const [messages, setMessages] = useState([
         {
-            ...mockStarterMessages[0],
+            id: "welcome",
+            role: "assistant",
             content: `Hello ${user.username} 👋 I can help you review your portfolio, recent transactions and market trends.`,
         },
     ]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const createMockResponse = (question) => {
-        const normalizedQuestion = question.toLowerCase();
-
-        if (normalizedQuestion.includes("portfolio")) {
-            return "Your portfolio currently contains BTC and ETH. BTC represents the larger share of your crypto holdings. Based on the mock values, your total portfolio value is approximately $42,588.71.";
-        }
-
-        if (
-            normalizedQuestion.includes("transaction") ||
-            normalizedQuestion.includes("işlem")
-        ) {
-            return "Your recent activity includes BTC and ETH buy and sell operations. When the backend is connected, I will summarize your real transaction history from PostgreSQL.";
-        }
-
-        if (
-            normalizedQuestion.includes("btc") ||
-            normalizedQuestion.includes("bitcoin")
-        ) {
-            return "Bitcoin is currently your largest digital asset position. Its price is being displayed from mock market data for now. Later, the latest value will come from Redis through CryptoScope Core.";
-        }
-
-        if (
-            normalizedQuestion.includes("eth") ||
-            normalizedQuestion.includes("ethereum")
-        ) {
-            return "Ethereum forms a smaller part of your current mock portfolio. Future responses will combine live prices, historical trends and your account details.";
-        }
-
-        return "This is a temporary mock AI response. After the Gemini integration is ready, your question will be sent to the backend together with your portfolio, latest prices and recent transactions.";
-    };
-
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
 
         const trimmedInput = input.trim();
@@ -69,20 +39,39 @@ function AiChatPage() {
         setInput("");
         setIsLoading(true);
 
-        window.setTimeout(() => {
+        try {
+            const res = await askAi(trimmedInput);
+
             const assistantMessage = {
                 id: Date.now() + 1,
                 role: "assistant",
-                content: createMockResponse(trimmedInput),
+                content: res.data.answer,
             };
 
             setMessages((currentMessages) => [
                 ...currentMessages,
                 assistantMessage,
             ]);
+        } catch (err) {
+            console.error("AI chat error:", err);
 
+            const backendMessage = err.response?.data?.message;
+
+            const assistantMessage = {
+                id: Date.now() + 1,
+                role: "assistant",
+                content:
+                    backendMessage ||
+                    "Sorry, I couldn't get a response right now. Please try again.",
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+        } finally {
             setIsLoading(false);
-        }, 900);
+        }
     };
 
     return (
@@ -102,7 +91,7 @@ function AiChatPage() {
 
                     <div className="ai-status">
                         <span className="status-dot" />
-                        Mock AI active
+                        Gemini AI active
                     </div>
                 </section>
 
@@ -148,9 +137,9 @@ function AiChatPage() {
 
                         <div className="ai-info-card">
                             <span>Current mode</span>
-                            <strong>Frontend mock response</strong>
+                            <strong>Live Gemini response</strong>
                             <p>
-                                Gemini responses will be connected through the backend API.
+                                Answers are generated using your real portfolio and market data.
                             </p>
                         </div>
                     </aside>

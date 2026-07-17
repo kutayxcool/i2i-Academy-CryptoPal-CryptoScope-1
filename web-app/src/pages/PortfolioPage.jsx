@@ -1,40 +1,86 @@
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import "../styles/Portfolio.css";
-import { mockPortfolio } from "../mock/mockData";
 import { useAuth } from "../context/AuthContext";
+import { getPortfolio, getTransactions } from "../services/portfolioService";
+import { getMarketPrices } from "../services/marketService";
 
-const portfolioAssets = mockPortfolio;
+const CRYPTO_NAMES = {
+    BTC: "Bitcoin",
+    ETH: "Ethereum",
+    BNB: "BNB",
+    SOL: "Solana",
+    XRP: "XRP",
+};
 
-const recentTransactions = [
-    {
-        id: 1,
-        type: "BUY",
-        symbol: "BTC",
-        quantity: 0.1,
-        price: 64000,
-        date: "14 July 2026, 13:40",
-    },
-    {
-        id: 2,
-        type: "SELL",
-        symbol: "ETH",
-        quantity: 0.5,
-        price: 3380,
-        date: "13 July 2026, 17:15",
-    },
-    {
-        id: 3,
-        type: "BUY",
-        symbol: "ETH",
-        quantity: 1.2,
-        price: 3290,
-        date: "12 July 2026, 10:20",
-    },
-];
+function normalizePriceMap(raw) {
+    if (Array.isArray(raw)) {
+        return Object.fromEntries(raw.map((item) => [item.symbol, Number(item.price)]));
+    }
+
+    if (raw && typeof raw === "object") {
+        return Object.fromEntries(
+            Object.entries(raw).map(([symbol, price]) => [symbol, Number(price)])
+        );
+    }
+
+    return {};
+}
 
 function PortfolioPage() {
     const { user } = useAuth();
-    const cashBalance = user.balance;
+    const [portfolioAssets, setPortfolioAssets] = useState([]);
+    const [recentTransactions, setRecentTransactions] = useState([]);
+    const [cashBalance, setCashBalance] = useState(user.balance);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(true);
+
+    const loadData = () => {
+        setLoading(true);
+        setError("");
+
+        Promise.all([getPortfolio(), getTransactions(), getMarketPrices()])
+            .then(([portfolioRes, transactionsRes, pricesRes]) => {
+                const priceMap = normalizePriceMap(pricesRes.data);
+
+                setCashBalance(Number(portfolioRes.data.balance));
+
+                setPortfolioAssets(
+                    (portfolioRes.data.holdings || []).map((holding) => {
+                        const price = priceMap[holding.symbol] ?? 0;
+
+                        return {
+                            symbol: holding.symbol,
+                            name: CRYPTO_NAMES[holding.symbol] ?? holding.symbol,
+                            quantity: Number(holding.amount),
+                            price,
+                            change: 0,
+                        };
+                    })
+                );
+
+                setRecentTransactions(
+                    transactionsRes.data.map((tx) => ({
+                        id: tx.id,
+                        type: tx.type,
+                        symbol: tx.symbol,
+                        quantity: Number(tx.amount),
+                        price: Number(tx.price),
+                        date: new Date(tx.executedAt).toLocaleString("en-US"),
+                    }))
+                );
+            })
+            .catch((err) => {
+                console.error("Portfolio error:", err);
+                setError("Portfolio could not be loaded.");
+            })
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
     const cryptoValue = portfolioAssets.reduce(
         (total, asset) => total + asset.quantity * asset.price,
         0
@@ -57,6 +103,17 @@ function PortfolioPage() {
                         </p>
                     </div>
                 </section>
+
+                {error && (
+                    <div className="dashboard-message" style={{ marginBottom: "16px" }}>
+                        {error}{" "}
+                        <button type="button" onClick={loadData}>
+                            Try Again
+                        </button>
+                    </div>
+                )}
+
+                {loading && !error && <p>Loading portfolio...</p>}
 
                 <section className="summary-grid">
                     <article className="summary-card">

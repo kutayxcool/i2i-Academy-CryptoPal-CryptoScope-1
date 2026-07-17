@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../styles/Auth.css";
+import { register } from "../services/authService";
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ function RegisterPage() {
   });
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -23,7 +25,7 @@ function RegisterPage() {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
 
@@ -44,10 +46,19 @@ function RegisterPage() {
       return;
     }
 
-    console.log("Register data:", formData);
+    setLoading(true);
 
-    // Backend hazır olana kadar login sayfasına yönlendiriyoruz.
-    navigate("/");
+    try {
+      // Not: Backend'de email alanı yok, sadece username/password kaydediliyor.
+      await register({ username, password });
+
+      navigate("/");
+    } catch (err) {
+      const backendMessage = err.response?.data?.message;
+      setError(backendMessage || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -103,8 +114,8 @@ function RegisterPage() {
             onChange={handleChange}
           />
 
-          <button type="submit" className="auth-button">
-            Register
+          <button type="submit" className="auth-button" disabled={loading}>
+            {loading ? "Creating account..." : "Register"}
           </button>
         </form>
 

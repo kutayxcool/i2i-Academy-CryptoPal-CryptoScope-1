@@ -1,7 +1,7 @@
 import api from "./api";
 
-export const askAi = (message) => {
+export const askAi = (question) => {
   return api.post("/ai/chat", {
-    message,
+    question,
   });
 };

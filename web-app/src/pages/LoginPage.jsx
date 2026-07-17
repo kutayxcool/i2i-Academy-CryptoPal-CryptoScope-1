@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../styles/Auth.css";
 import { useAuth } from "../context/AuthContext";
+import { login } from "../services/authService";
 
 function LoginPage() {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ function LoginPage() {
     });
 
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -23,7 +25,7 @@ function LoginPage() {
         }));
     };
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
         setError("");
 
@@ -32,13 +34,27 @@ function LoginPage() {
             return;
         }
 
-        authLogin({
-            username: formData.username,
-            balance: 12500,
-            token: "mock-token",
-        });
+        setLoading(true);
 
-        navigate("/dashboard");
+        try {
+            const res = await login({
+                username: formData.username,
+                password: formData.password,
+            });
+
+            authLogin({
+                username: res.data.username,
+                balance: res.data.balance,
+                token: res.data.token,
+            });
+
+            navigate("/dashboard");
+        } catch (err) {
+            const backendMessage = err.response?.data?.message;
+            setError(backendMessage || "Login failed. Check your username and password.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -76,8 +92,8 @@ function LoginPage() {
                         onChange={handleChange}
                     />
 
-                    <button type="submit" className="auth-button">
-                        Login
+                    <button type="submit" className="auth-button" disabled={loading}>
+                        {loading ? "Logging in..." : "Login"}
                     </button>
                 </form>
 
