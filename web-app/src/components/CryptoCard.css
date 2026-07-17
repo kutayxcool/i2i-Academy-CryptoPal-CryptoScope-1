@@ -1,0 +1,72 @@
+.crypto-card {
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.72);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+}
+
+.crypto-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.crypto-card h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 24px;
+}
+
+.crypto-card p {
+  margin: 4px 0 0;
+  color: #94a3b8;
+}
+
+.crypto-change {
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crypto-change.positive {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.crypto-change.negative {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+.crypto-price {
+  margin: 26px 0;
+  color: #f8fafc;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.crypto-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.crypto-actions button {
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  color: white;
+  font-weight: 700;
+}
+
+.buy-button {
+  background: #16a34a;
+}
+
+.sell-button {
+  background: #dc2626;
+}
