@@ -21,7 +21,7 @@ CREATE TABLE transactions (
     type VARCHAR(4) NOT NULL, -- 'BUY' veya 'SELL'
     symbol VARCHAR(20) NOT NULL,
     amount NUMERIC(30,12) NOT NULL,
-    price NUMERIC(18,2) NOT NULL,
+    price NUMERIC(30,8) NOT NULL,
     executed_at TIMESTAMP NOT NULL
 );
 
