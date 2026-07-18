@@ -1,46 +1,377 @@
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
+
 import Navbar from "../components/Navbar";
+
+import {
+    getPortfolio,
+    getTransactions,
+} from "../services/portfolioService";
+
+import {
+    getMarketPrices,
+} from "../services/marketService";
+
+import {
+    useAuth,
+} from "../context/AuthContext";
+
 import "../styles/Portfolio.css";
-import { mockPortfolio } from "../mock/mockData";
-import { useAuth } from "../context/AuthContext";
 
-const portfolioAssets = mockPortfolio;
+const ASSET_NAMES = {
+    BTC: "Bitcoin",
+    ETH: "Ethereum",
+};
 
-const recentTransactions = [
-    {
-        id: 1,
-        type: "BUY",
-        symbol: "BTC",
-        quantity: 0.1,
-        price: 64000,
-        date: "14 July 2026, 13:40",
-    },
-    {
-        id: 2,
-        type: "SELL",
-        symbol: "ETH",
-        quantity: 0.5,
-        price: 3380,
-        date: "13 July 2026, 17:15",
-    },
-    {
-        id: 3,
-        type: "BUY",
-        symbol: "ETH",
-        quantity: 1.2,
-        price: 3290,
-        date: "12 July 2026, 10:20",
-    },
-];
+const ASSET_ICONS = {
+    BTC: "₿",
+    ETH: "Ξ",
+};
+
+const ASSET_ORDER = {
+    BTC: 1,
+    ETH: 2,
+};
+
+function getApiErrorMessage(
+    requestError,
+    fallbackMessage
+) {
+    return requestError.response?.data
+        ?.error?.message
+        || requestError.message
+        || fallbackMessage;
+}
+
+function formatCurrency(value) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return "0.00";
+    }
+
+    return numericValue.toLocaleString(
+        "en-US",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }
+    );
+}
+
+function formatPrice(value) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return "Unavailable";
+    }
+
+    return numericValue.toLocaleString(
+        "en-US",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 8,
+        }
+    );
+}
+
+function formatAmount(value) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return "0";
+    }
+
+    return numericValue.toLocaleString(
+        "en-US",
+        {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 12,
+        }
+    );
+}
+
+function formatTransactionDate(executedAt) {
+    const date = new Date(executedAt);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Unknown date";
+    }
+
+    return date.toLocaleString(
+        "en-US",
+        {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+        }
+    );
+}
+
+function createPriceMap(marketPrices) {
+    if (!Array.isArray(marketPrices)) {
+        return new Map();
+    }
+
+    return new Map(
+        marketPrices.map((marketPrice) => [
+            marketPrice.symbol,
+            {
+                price: Number(marketPrice.price),
+                updatedAt: marketPrice.updatedAt,
+            },
+        ])
+    );
+}
+
+function findLatestMarketUpdate(marketPrices) {
+    if (!Array.isArray(marketPrices)) {
+        return null;
+    }
+
+    const timestamps = marketPrices
+        .map((marketPrice) =>
+            new Date(
+                marketPrice.updatedAt
+            ).getTime()
+        )
+        .filter(Number.isFinite);
+
+    if (timestamps.length === 0) {
+        return null;
+    }
+
+    return new Date(
+        Math.max(...timestamps)
+    );
+}
 
 function PortfolioPage() {
     const { user } = useAuth();
-    const cashBalance = user.balance;
-    const cryptoValue = portfolioAssets.reduce(
-        (total, asset) => total + asset.quantity * asset.price,
-        0
+
+    const [balance, setBalance] = useState(
+        Number(user.balance) || 0
     );
 
-    const totalPortfolioValue = cashBalance + cryptoValue;
+    const [holdings, setHoldings] =
+        useState([]);
+
+    const [transactions, setTransactions] =
+        useState([]);
+
+    const [priceMap, setPriceMap] =
+        useState(new Map());
+
+    const [lastUpdated, setLastUpdated] =
+        useState(null);
+
+    const [error, setError] =
+        useState("");
+
+    const [isLoading, setIsLoading] =
+        useState(true);
+
+    const [isRefreshing, setIsRefreshing] =
+        useState(false);
+
+    const loadPortfolioData = useCallback(
+        async (showInitialLoading = false) => {
+            if (showInitialLoading) {
+                setIsLoading(true);
+            } else {
+                setIsRefreshing(true);
+            }
+
+            setError("");
+
+            try {
+                const [
+                    portfolioResponse,
+                    transactionsResponse,
+                    marketResponse,
+                ] = await Promise.all([
+                    getPortfolio(),
+                    getTransactions(),
+                    getMarketPrices(),
+                ]);
+
+                const portfolioData =
+                    portfolioResponse.data;
+
+                const transactionData =
+                    transactionsResponse.data;
+
+                const marketData =
+                    marketResponse.data;
+
+                setBalance(
+                    Number(
+                        portfolioData.balance
+                    )
+                );
+
+                setHoldings(
+                    Array.isArray(
+                        portfolioData.holdings
+                    )
+                        ? portfolioData.holdings
+                        : []
+                );
+
+                setTransactions(
+                    Array.isArray(
+                        transactionData
+                    )
+                        ? transactionData
+                        : []
+                );
+
+                setPriceMap(
+                    createPriceMap(
+                        marketData
+                    )
+                );
+
+                setLastUpdated(
+                    findLatestMarketUpdate(
+                        marketData
+                    )
+                );
+            } catch (requestError) {
+                setError(
+                    getApiErrorMessage(
+                        requestError,
+                        "Unable to load portfolio information"
+                    )
+                );
+            } finally {
+                setIsLoading(false);
+                setIsRefreshing(false);
+            }
+        },
+        []
+    );
+
+    useEffect(() => {
+        loadPortfolioData(true);
+    }, [loadPortfolioData]);
+
+    const portfolioAssets = useMemo(
+        () =>
+            holdings
+                .map((holding) => {
+                    const marketPrice =
+                        priceMap.get(
+                            holding.symbol
+                        );
+
+                    const amount =
+                        Number(
+                            holding.amount
+                        );
+
+                    const price =
+                        marketPrice?.price;
+
+                    const hasValidPrice =
+                        Number.isFinite(price);
+
+                    return {
+                        symbol:
+                            holding.symbol,
+
+                        name:
+                            ASSET_NAMES[
+                                holding.symbol
+                            ]
+                            || holding.symbol,
+
+                        icon:
+                            ASSET_ICONS[
+                                holding.symbol
+                            ]
+                            || "●",
+
+                        amount:
+                            Number.isFinite(
+                                amount
+                            )
+                                ? amount
+                                : 0,
+
+                        price:
+                            hasValidPrice
+                                ? price
+                                : null,
+
+                        updatedAt:
+                            marketPrice?.updatedAt
+                            || null,
+
+                        currentValue:
+                            hasValidPrice
+                                ? amount * price
+                                : 0,
+                    };
+                })
+                .sort(
+                    (
+                        firstAsset,
+                        secondAsset
+                    ) =>
+                        (
+                            ASSET_ORDER[
+                                firstAsset.symbol
+                            ]
+                            || 99
+                        )
+                        -
+                        (
+                            ASSET_ORDER[
+                                secondAsset.symbol
+                            ]
+                            || 99
+                        )
+                ),
+        [holdings, priceMap]
+    );
+
+    const cryptoValue = useMemo(
+        () =>
+            portfolioAssets.reduce(
+                (
+                    totalValue,
+                    asset
+                ) =>
+                    totalValue
+                    + asset.currentValue,
+                0
+            ),
+        [portfolioAssets]
+    );
+
+    const totalPortfolioValue =
+        balance + cryptoValue;
+
+    if (isLoading) {
+        return (
+            <div className="portfolio-page">
+                <Navbar />
+
+                <main className="portfolio-content">
+                    <div className="portfolio-state">
+                        Loading your portfolio...
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div className="portfolio-page">
@@ -49,46 +380,93 @@ function PortfolioPage() {
             <main className="portfolio-content">
                 <section className="portfolio-heading">
                     <div>
-                        <p className="portfolio-eyebrow">Your investments</p>
-                        <h1>Portfolio Overview</h1>
+                        <p className="portfolio-eyebrow">
+                            Your investments
+                        </p>
+
+                        <h1>
+                            Portfolio Overview
+                        </h1>
+
                         <p>
-                            Welcome back, {user.username}. Monitor your balance,
-                            digital assets and recent transactions.
+                            Welcome back,{" "}
+                            {user.username}.
+                            Monitor your balance,
+                            digital assets and
+                            recent transactions.
                         </p>
                     </div>
+
+                    <button
+                        type="button"
+                        className="portfolio-refresh-button"
+                        onClick={() =>
+                            loadPortfolioData(false)
+                        }
+                        disabled={isRefreshing}
+                    >
+                        {isRefreshing
+                            ? "Refreshing..."
+                            : "Refresh Portfolio"}
+                    </button>
                 </section>
+
+                {error && (
+                    <div className="portfolio-error">
+                        {error}
+                    </div>
+                )}
 
                 <section className="summary-grid">
                     <article className="summary-card">
-                        <span>Cash Balance</span>
+                        <span>
+                            Cash Balance
+                        </span>
+
                         <strong>
-                            ${cashBalance.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                            })}
+                            $
+                            {formatCurrency(
+                                balance
+                            )}
                         </strong>
-                        <small>Available for trading</small>
+
+                        <small>
+                            Available for trading
+                        </small>
                     </article>
 
                     <article className="summary-card">
-                        <span>Crypto Value</span>
+                        <span>
+                            Crypto Value
+                        </span>
+
                         <strong>
-                            ${cryptoValue.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                            })}
+                            $
+                            {formatCurrency(
+                                cryptoValue
+                            )}
                         </strong>
-                        <small>Current market value</small>
+
+                        <small>
+                            Current market value
+                        </small>
                     </article>
 
                     <article className="summary-card highlight-card">
-                        <span>Total Portfolio Value</span>
+                        <span>
+                            Total Portfolio Value
+                        </span>
+
                         <strong>
-                            ${totalPortfolioValue.toLocaleString("en-US", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                            })}
+                            $
+                            {formatCurrency(
+                                totalPortfolioValue
+                            )}
                         </strong>
-                        <small>Cash and digital assets</small>
+
+                        <small>
+                            Cash and digital assets
+                        </small>
                     </article>
                 </section>
 
@@ -96,142 +474,201 @@ function PortfolioPage() {
                     <div className="section-title">
                         <div>
                             <h2>Your Assets</h2>
-                            <p>Current cryptocurrency holdings</p>
+
+                            <p>
+                                Current cryptocurrency
+                                holdings
+                                {lastUpdated
+                                    ? ` · Prices updated at ${lastUpdated.toLocaleTimeString()}`
+                                    : ""}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="asset-grid">
-                        {portfolioAssets.map((asset) => {
-                            const currentValue = asset.quantity * asset.price;
-                            const isPositive = asset.change >= 0;
+                    {portfolioAssets.length === 0 ? (
+                        <div className="portfolio-state">
+                            You do not currently own
+                            any cryptocurrency.
+                        </div>
+                    ) : (
+                        <div className="asset-grid">
+                            {portfolioAssets.map(
+                                (asset) => (
+                                    <article
+                                        className="asset-card"
+                                        key={
+                                            asset.symbol
+                                        }
+                                    >
+                                        <div className="asset-card-top">
+                                            <div className="asset-identity">
+                                                <div className="asset-icon">
+                                                    {asset.icon}
+                                                </div>
 
-                            return (
-                                <article className="asset-card" key={asset.symbol}>
-                                    <div className="asset-card-top">
-                                        <div className="asset-identity">
-                                            <div className="asset-icon">
-                                                {asset.symbol === "BTC" ? "₿" : "Ξ"}
+                                                <div>
+                                                    <h3>
+                                                        {asset.symbol}
+                                                    </h3>
+
+                                                    <p>
+                                                        {asset.name}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <span className="asset-live">
+                                                Live price
+                                            </span>
+                                        </div>
+
+                                        <div className="asset-details">
+                                            <div>
+                                                <span>
+                                                    Quantity
+                                                </span>
+
+                                                <strong>
+                                                    {formatAmount(
+                                                        asset.amount
+                                                    )}{" "}
+                                                    {asset.symbol}
+                                                </strong>
                                             </div>
 
                                             <div>
-                                                <h3>{asset.symbol}</h3>
-                                                <p>{asset.name}</p>
+                                                <span>
+                                                    Current Price
+                                                </span>
+
+                                                <strong>
+                                                    {asset.price
+                                                        !== null
+                                                        ? `$${formatPrice(
+                                                            asset.price
+                                                        )}`
+                                                        : "Unavailable"}
+                                                </strong>
+                                            </div>
+
+                                            <div>
+                                                <span>
+                                                    Current Value
+                                                </span>
+
+                                                <strong>
+                                                    $
+                                                    {formatCurrency(
+                                                        asset.currentValue
+                                                    )}
+                                                </strong>
                                             </div>
                                         </div>
-
-                                        <span
-                                            className={
-                                                isPositive
-                                                    ? "asset-change positive"
-                                                    : "asset-change negative"
-                                            }
-                                        >
-                                            {isPositive ? "+" : ""}
-                                            {asset.change}%
-                                        </span>
-                                    </div>
-
-                                    <div className="asset-details">
-                                        <div>
-                                            <span>Quantity</span>
-                                            <strong>
-                                                {asset.quantity} {asset.symbol}
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>Current Price</span>
-                                            <strong>
-                                                $
-                                                {asset.price.toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                })}
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>Current Value</span>
-                                            <strong>
-                                                $
-                                                {currentValue.toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </strong>
-                                        </div>
-                                    </div>
-                                </article>
-                            );
-                        })}
-                    </div>
+                                    </article>
+                                )
+                            )}
+                        </div>
+                    )}
                 </section>
 
                 <section className="portfolio-section">
                     <div className="section-title">
                         <div>
-                            <h2>Recent Transactions</h2>
-                            <p>Your latest buy and sell operations</p>
+                            <h2>
+                                Recent Transactions
+                            </h2>
+
+                            <p>
+                                Your latest buy and
+                                sell operations
+                            </p>
                         </div>
                     </div>
 
-                    <div className="transactions-table-wrapper">
-                        <table className="transactions-table">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Asset</th>
-                                    <th>Quantity</th>
-                                    <th>Execution Price</th>
-                                    <th>Total</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
+                    {transactions.length === 0 ? (
+                        <div className="portfolio-state">
+                            You have not completed
+                            any transactions yet.
+                        </div>
+                    ) : (
+                        <div className="transactions-table-wrapper">
+                            <table className="transactions-table">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Asset</th>
+                                        <th>Amount</th>
+                                        <th>
+                                            Execution Price
+                                        </th>
+                                        <th>Total</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
 
-                            <tbody>
-                                {recentTransactions.map((transaction) => {
-                                    const total =
-                                        transaction.quantity * transaction.price;
+                                <tbody>
+                                    {transactions.map(
+                                        (
+                                            transaction
+                                        ) => (
+                                            <tr
+                                                key={
+                                                    transaction.id
+                                                }
+                                            >
+                                                <td>
+                                                    <span
+                                                        className={
+                                                            transaction.type
+                                                                === "BUY"
+                                                                ? "transaction-badge buy"
+                                                                : "transaction-badge sell"
+                                                        }
+                                                    >
+                                                        {
+                                                            transaction.type
+                                                        }
+                                                    </span>
+                                                </td>
 
-                                    return (
-                                        <tr key={transaction.id}>
-                                            <td>
-                                                <span
-                                                    className={
-                                                        transaction.type === "BUY"
-                                                            ? "transaction-badge buy"
-                                                            : "transaction-badge sell"
+                                                <td>
+                                                    {
+                                                        transaction.symbol
                                                     }
-                                                >
-                                                    {transaction.type}
-                                                </span>
-                                            </td>
+                                                </td>
 
-                                            <td>{transaction.symbol}</td>
+                                                <td>
+                                                    {formatAmount(
+                                                        transaction.amount
+                                                    )}
+                                                </td>
 
-                                            <td>{transaction.quantity}</td>
+                                                <td>
+                                                    $
+                                                    {formatPrice(
+                                                        transaction.price
+                                                    )}
+                                                </td>
 
-                                            <td>
-                                                $
-                                                {transaction.price.toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                })}
-                                            </td>
+                                                <td>
+                                                    $
+                                                    {formatCurrency(
+                                                        transaction.total
+                                                    )}
+                                                </td>
 
-                                            <td>
-                                                $
-                                                {total.toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                    maximumFractionDigits: 2,
-                                                })}
-                                            </td>
-
-                                            <td>{transaction.date}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                <td>
+                                                    {formatTransactionDate(
+                                                        transaction.executedAt
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </section>
             </main>
         </div>
