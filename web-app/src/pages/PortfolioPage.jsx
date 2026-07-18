@@ -6,7 +6,11 @@ import {
 } from "react";
 
 import Navbar from "../components/Navbar";
-
+import {
+    getAssetIcon,
+    getAssetName,
+    getAssetOrder,
+} from "../constants/assetCatalog";
 import {
     getPortfolio,
     getTransactions,
@@ -22,20 +26,6 @@ import {
 
 import "../styles/Portfolio.css";
 
-const ASSET_NAMES = {
-    BTC: "Bitcoin",
-    ETH: "Ethereum",
-};
-
-const ASSET_ICONS = {
-    BTC: "₿",
-    ETH: "Ξ",
-};
-
-const ASSET_ORDER = {
-    BTC: 1,
-    ETH: 2,
-};
 
 function getApiErrorMessage(
     requestError,
@@ -286,17 +276,13 @@ function PortfolioPage() {
                         symbol:
                             holding.symbol,
 
-                        name:
-                            ASSET_NAMES[
-                                holding.symbol
-                            ]
-                            || holding.symbol,
+                       name: getAssetName(
+                           holding.symbol
+                       ),
 
-                        icon:
-                            ASSET_ICONS[
-                                holding.symbol
-                            ]
-                            || "●",
+                       icon: getAssetIcon(
+                           holding.symbol
+                       ),
 
                         amount:
                             Number.isFinite(
@@ -325,18 +311,11 @@ function PortfolioPage() {
                         firstAsset,
                         secondAsset
                     ) =>
-                        (
-                            ASSET_ORDER[
-                                firstAsset.symbol
-                            ]
-                            || 99
+                        getAssetOrder(
+                            firstAsset.symbol
                         )
-                        -
-                        (
-                            ASSET_ORDER[
-                                secondAsset.symbol
-                            ]
-                            || 99
+                        - getAssetOrder(
+                            secondAsset.symbol
                         )
                 ),
         [holdings, priceMap]

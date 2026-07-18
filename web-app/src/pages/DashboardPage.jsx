@@ -7,7 +7,10 @@ import {
 import Navbar from "../components/Navbar";
 import CryptoCard from "../components/CryptoCard";
 import TradeModal from "../components/TradeModal";
-
+import {
+    getAssetName,
+    getAssetOrder,
+} from "../constants/assetCatalog";
 import {
     getMarketPrices,
 } from "../services/marketService";
@@ -23,15 +26,6 @@ import {
 
 import "../styles/Dashboard.css";
 
-const ASSET_NAMES = {
-    BTC: "Bitcoin",
-    ETH: "Ethereum",
-};
-
-const ASSET_ORDER = {
-    BTC: 1,
-    ETH: 2,
-};
 
 function getApiErrorMessage(
     requestError,
@@ -63,16 +57,20 @@ function normalizeMarketPrices(prices) {
     return prices
         .map((marketPrice) => ({
             symbol: marketPrice.symbol,
-            name:
-                ASSET_NAMES[marketPrice.symbol]
-                || marketPrice.symbol,
+            name: getAssetName(
+                marketPrice.symbol
+            ),
             price: Number(marketPrice.price),
             updatedAt: marketPrice.updatedAt,
         }))
         .sort(
             (firstAsset, secondAsset) =>
-                (ASSET_ORDER[firstAsset.symbol] || 99)
-                - (ASSET_ORDER[secondAsset.symbol] || 99)
+                getAssetOrder(
+                    firstAsset.symbol
+                )
+                - getAssetOrder(
+                    secondAsset.symbol
+                )
         );
 }
 
