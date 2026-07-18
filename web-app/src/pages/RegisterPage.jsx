@@ -1,119 +1,203 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+    Link,
+    useNavigate,
+} from "react-router-dom";
+
+import {
+    register as registerRequest,
+} from "../services/authService";
+
 import "../styles/Auth.css";
 
 function RegisterPage() {
-  const navigate = useNavigate();
+    const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
+    const [formData, setFormData] = useState({
+        username: "",
+        password: "",
+        confirmPassword: "",
+    });
 
-  const [error, setError] = useState("");
+    const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] =
+        useState(false);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+    const handleChange = (event) => {
+        const { name, value } = event.target;
 
-    setFormData((previousData) => ({
-      ...previousData,
-      [name]: value,
-    }));
-  };
+        setFormData((previousData) => ({
+            ...previousData,
+            [name]: value,
+        }));
+    };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    setError("");
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setError("");
 
-    const {
-      username,
-      email,
-      password,
-      confirmPassword,
-    } = formData;
+        const username =
+            formData.username.trim();
 
-    if (!username || !email || !password || !confirmPassword) {
-      setError("Please fill in all fields.");
-      return;
-    }
+        const password =
+            formData.password;
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
+        const confirmPassword =
+            formData.confirmPassword;
 
-    console.log("Register data:", formData);
+        if (
+            !username
+            || !password
+            || !confirmPassword
+        ) {
+            setError(
+                "Please fill in all fields."
+            );
+            return;
+        }
 
-    // Backend hazır olana kadar login sayfasına yönlendiriyoruz.
-    navigate("/");
-  };
+        if (username.length < 3) {
+            setError(
+                "Username must be at least 3 characters."
+            );
+            return;
+        }
 
-  return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <div className="auth-logo">CryptoScope</div>
+        if (password.length < 8) {
+            setError(
+                "Password must be at least 8 characters."
+            );
+            return;
+        }
 
-        <h1>Create Account</h1>
-        <p className="auth-subtitle">
-          Join CryptoScope and start exploring the crypto market.
-        </p>
+        if (password !== confirmPassword) {
+            setError(
+                "Passwords do not match."
+            );
+            return;
+        }
 
-        {error && <div className="auth-error">{error}</div>}
+        setIsSubmitting(true);
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label htmlFor="username">Username</label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            placeholder="Enter your username"
-            value={formData.username}
-            onChange={handleChange}
-          />
+        try {
+            await registerRequest({
+                username,
+                password,
+            });
 
-          <label htmlFor="register-email">Email</label>
-          <input
-            id="register-email"
-            name="email"
-            type="email"
-            placeholder="you@example.com"
-            value={formData.email}
-            onChange={handleChange}
-          />
+            navigate(
+                "/",
+                {
+                    replace: true,
+                    state: {
+                        message:
+                            "Registration successful. Please log in.",
+                    },
+                }
+            );
+        } catch (requestError) {
+            const message =
+                requestError.response?.data
+                    ?.error?.message
+                || "Registration failed. Please try again.";
 
-          <label htmlFor="register-password">Password</label>
-          <input
-            id="register-password"
-            name="password"
-            type="password"
-            placeholder="Create a password"
-            value={formData.password}
-            onChange={handleChange}
-          />
+            setError(message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-          <label htmlFor="confirm-password">Confirm Password</label>
-          <input
-            id="confirm-password"
-            name="confirmPassword"
-            type="password"
-            placeholder="Repeat your password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-          />
+    return (
+        <main className="auth-page">
+            <section className="auth-card">
+                <div className="auth-logo">
+                    CryptoScope
+                </div>
 
-          <button type="submit" className="auth-button">
-            Register
-          </button>
-        </form>
+                <h1>Create Account</h1>
 
-        <p className="auth-footer">
-          Already have an account? <Link to="/">Login</Link>
-        </p>
-      </section>
-    </main>
-  );
+                <p className="auth-subtitle">
+                    Join CryptoScope and start
+                    exploring the crypto market.
+                </p>
+
+                {error && (
+                    <div className="auth-error">
+                        {error}
+                    </div>
+                )}
+
+                <form
+                    className="auth-form"
+                    onSubmit={handleSubmit}
+                >
+                    <label htmlFor="username">
+                        Username
+                    </label>
+
+                    <input
+                        id="username"
+                        name="username"
+                        type="text"
+                        placeholder="Enter your username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        autoComplete="username"
+                    />
+
+                    <label htmlFor="register-password">
+                        Password
+                    </label>
+
+                    <input
+                        id="register-password"
+                        name="password"
+                        type="password"
+                        placeholder="Create a password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        autoComplete="new-password"
+                    />
+
+                    <label htmlFor="confirm-password">
+                        Confirm Password
+                    </label>
+
+                    <input
+                        id="confirm-password"
+                        name="confirmPassword"
+                        type="password"
+                        placeholder="Repeat your password"
+                        value={
+                            formData.confirmPassword
+                        }
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        autoComplete="new-password"
+                    />
+
+                    <button
+                        type="submit"
+                        className="auth-button"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting
+                            ? "Creating account..."
+                            : "Register"}
+                    </button>
+                </form>
+
+                <p className="auth-footer">
+                    Already have an account?{" "}
+                    <Link to="/">
+                        Login
+                    </Link>
+                </p>
+            </section>
+        </main>
+    );
 }
 
 export default RegisterPage;
