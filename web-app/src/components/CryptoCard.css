@@ -70,3 +70,18 @@
 .sell-button {
   background: #dc2626;
 }
+.crypto-live {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crypto-updated {
+  display: block;
+  margin: -16px 0 24px;
+  color: #64748b;
+  font-size: 12px;
+}

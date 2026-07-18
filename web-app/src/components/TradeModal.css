@@ -91,3 +91,9 @@
   background: rgba(127, 29, 29, 0.35);
   color: #fecaca;
 }
+.execute-order-button:disabled,
+.modal-close:disabled,
+.trade-modal input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
