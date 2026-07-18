@@ -1,62 +1,103 @@
-import { useState } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
+
 import Navbar from "../components/Navbar";
+
+import {
+    askAi,
+} from "../services/aiService";
+
+import {
+    useAuth,
+} from "../context/AuthContext";
+
 import "../styles/AiChat.css";
-import { mockStarterMessages } from "../mock/mockData";
-import { useAuth } from "../context/AuthContext";
+
+const MAX_QUESTION_LENGTH = 1000;
+
+function createMessageId(role) {
+    return `${role}-${Date.now()}-${Math.random()}`;
+}
+
+function getApiErrorMessage(
+    requestError,
+    fallbackMessage
+) {
+    return requestError.response?.data
+        ?.error?.message
+        || requestError.message
+        || fallbackMessage;
+}
 
 function AiChatPage() {
     const { user } = useAuth();
-    const [messages, setMessages] = useState([
-        {
-            ...mockStarterMessages[0],
-            content: `Hello ${user.username} 👋 I can help you review your portfolio, recent transactions and market trends.`,
-        },
-    ]);
-    const [input, setInput] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
 
-    const createMockResponse = (question) => {
-        const normalizedQuestion = question.toLowerCase();
+    const [messages, setMessages] = useState(
+        () => [
+            {
+                id: createMessageId("assistant"),
+                role: "assistant",
+                content:
+                    `Hello ${user.username} 👋 `
+                    + "I can help you review your "
+                    + "portfolio, recent transactions "
+                    + "and current market prices.",
+            },
+        ]
+    );
 
-        if (normalizedQuestion.includes("portfolio")) {
-            return "Your portfolio currently contains BTC and ETH. BTC represents the larger share of your crypto holdings. Based on the mock values, your total portfolio value is approximately $42,588.71.";
+    const [input, setInput] =
+        useState("");
+
+    const [isLoading, setIsLoading] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
+    const messagesEndRef =
+        useRef(null);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+        });
+    }, [messages, isLoading, error]);
+
+    const selectSuggestedQuestion = (
+        question
+    ) => {
+        if (isLoading) {
+            return;
         }
 
-        if (
-            normalizedQuestion.includes("transaction") ||
-            normalizedQuestion.includes("işlem")
-        ) {
-            return "Your recent activity includes BTC and ETH buy and sell operations. When the backend is connected, I will summarize your real transaction history from PostgreSQL.";
-        }
-
-        if (
-            normalizedQuestion.includes("btc") ||
-            normalizedQuestion.includes("bitcoin")
-        ) {
-            return "Bitcoin is currently your largest digital asset position. Its price is being displayed from mock market data for now. Later, the latest value will come from Redis through CryptoScope Core.";
-        }
-
-        if (
-            normalizedQuestion.includes("eth") ||
-            normalizedQuestion.includes("ethereum")
-        ) {
-            return "Ethereum forms a smaller part of your current mock portfolio. Future responses will combine live prices, historical trends and your account details.";
-        }
-
-        return "This is a temporary mock AI response. After the Gemini integration is ready, your question will be sent to the backend together with your portfolio, latest prices and recent transactions.";
+        setInput(question);
+        setError("");
     };
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
-
-        const trimmedInput = input.trim();
+    const submitQuestion = async () => {
+        const trimmedInput =
+            input.trim();
 
         if (!trimmedInput || isLoading) {
             return;
         }
 
+        if (
+            trimmedInput.length
+            > MAX_QUESTION_LENGTH
+        ) {
+            setError(
+                "Question must not exceed 1000 characters."
+            );
+            return;
+        }
+
         const userMessage = {
-            id: Date.now(),
+            id: createMessageId("user"),
             role: "user",
             content: trimmedInput,
         };
@@ -67,22 +108,88 @@ function AiChatPage() {
         ]);
 
         setInput("");
+        setError("");
         setIsLoading(true);
 
-        window.setTimeout(() => {
+        try {
+            const response =
+                await askAi(trimmedInput);
+
+            const answer =
+                response.data?.answer;
+
+            if (
+                typeof answer !== "string"
+                || !answer.trim()
+            ) {
+                throw new Error(
+                    "AI service returned an empty answer"
+                );
+            }
+
             const assistantMessage = {
-                id: Date.now() + 1,
+                id: createMessageId(
+                    "assistant"
+                ),
                 role: "assistant",
-                content: createMockResponse(trimmedInput),
+                content: answer.trim(),
             };
 
-            setMessages((currentMessages) => [
-                ...currentMessages,
-                assistantMessage,
-            ]);
-
+            setMessages(
+                (currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]
+            );
+        } catch (requestError) {
+            setError(
+                getApiErrorMessage(
+                    requestError,
+                    "AI service is temporarily unavailable"
+                )
+            );
+        } finally {
             setIsLoading(false);
-        }, 900);
+        }
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+
+        await submitQuestion();
+    };
+
+    const handleKeyDown = async (event) => {
+        if (
+            event.key === "Enter"
+            && !event.shiftKey
+        ) {
+            event.preventDefault();
+
+            await submitQuestion();
+        }
+    };
+
+    const clearConversation = () => {
+        if (isLoading) {
+            return;
+        }
+
+        setMessages([
+            {
+                id: createMessageId(
+                    "assistant"
+                ),
+                role: "assistant",
+                content:
+                    `Hello ${user.username} 👋 `
+                    + "How can I help you with "
+                    + "your CryptoScope account?",
+            },
+        ]);
+
+        setInput("");
+        setError("");
     };
 
     return (
@@ -92,28 +199,58 @@ function AiChatPage() {
             <main className="ai-content">
                 <section className="ai-heading">
                     <div>
-                        <p className="ai-eyebrow">Intelligent insights</p>
-                        <h1>CryptoScope AI Assistant</h1>
+                        <p className="ai-eyebrow">
+                            Intelligent insights
+                        </p>
+
+                        <h1>
+                            CryptoScope AI Assistant
+                        </h1>
+
                         <p>
-                            Ask questions about your account, portfolio, transactions
-                            and recent market movements.
+                            Ask questions about your
+                            account, portfolio,
+                            transactions and current
+                            market information.
                         </p>
                     </div>
 
-                    <div className="ai-status">
-                        <span className="status-dot" />
-                        Mock AI active
+                    <div
+                        className={
+                            error
+                                ? "ai-status error"
+                                : "ai-status"
+                        }
+                    >
+                        <span
+                            className={
+                                error
+                                    ? "status-dot error"
+                                    : "status-dot"
+                            }
+                        />
+
+                        {isLoading
+                            ? "AI is thinking"
+                            : error
+                                ? "AI unavailable"
+                                : "AI assistant ready"}
                     </div>
                 </section>
 
                 <section className="chat-layout">
                     <aside className="chat-sidebar">
-                        <h2>Suggested Questions</h2>
+                        <h2>
+                            Suggested Questions
+                        </h2>
 
                         <button
                             type="button"
+                            disabled={isLoading}
                             onClick={() =>
-                                setInput("Can you summarize my portfolio?")
+                                selectSuggestedQuestion(
+                                    "Can you summarize my portfolio?"
+                                )
                             }
                         >
                             Summarize my portfolio
@@ -121,8 +258,11 @@ function AiChatPage() {
 
                         <button
                             type="button"
+                            disabled={isLoading}
                             onClick={() =>
-                                setInput("What are my recent transactions?")
+                                selectSuggestedQuestion(
+                                    "What are my recent transactions?"
+                                )
                             }
                         >
                             Show recent transactions
@@ -130,8 +270,11 @@ function AiChatPage() {
 
                         <button
                             type="button"
+                            disabled={isLoading}
                             onClick={() =>
-                                setInput("What is my Bitcoin position?")
+                                selectSuggestedQuestion(
+                                    "What is my current Bitcoin position?"
+                                )
                             }
                         >
                             Review my BTC position
@@ -139,51 +282,92 @@ function AiChatPage() {
 
                         <button
                             type="button"
+                            disabled={isLoading}
                             onClick={() =>
-                                setInput("How is Ethereum performing?")
+                                selectSuggestedQuestion(
+                                    "Portföyümü ve nakit bakiyemi Türkçe olarak özetler misin?"
+                                )
                             }
                         >
-                            Review Ethereum
+                            Türkçe portfolio özeti
+                        </button>
+
+                        <button
+                            type="button"
+                            className="clear-chat-button"
+                            disabled={isLoading}
+                            onClick={clearConversation}
+                        >
+                            Clear conversation
                         </button>
 
                         <div className="ai-info-card">
-                            <span>Current mode</span>
-                            <strong>Frontend mock response</strong>
+                            <span>
+                                Current mode
+                            </span>
+
+                            <strong>
+                                Live backend context
+                            </strong>
+
                             <p>
-                                Gemini responses will be connected through the backend API.
+                                Answers are generated
+                                using your current cash
+                                balance, holdings,
+                                recent transactions and
+                                live market prices.
                             </p>
                         </div>
                     </aside>
 
                     <section className="chat-panel">
-                        <div className="chat-messages">
-                            {messages.map((message) => (
-                                <div
-                                    className={`chat-message ${message.role}`}
-                                    key={message.id}
-                                >
-                                    {message.role === "assistant" && (
-                                        <div className="message-avatar">AI</div>
-                                    )}
+                        <div
+                            className="chat-messages"
+                            aria-live="polite"
+                        >
+                            {messages.map(
+                                (message) => (
+                                    <div
+                                        className={
+                                            `chat-message ${message.role}`
+                                        }
+                                        key={message.id}
+                                    >
+                                        {message.role
+                                            === "assistant" && (
+                                            <div className="message-avatar">
+                                                AI
+                                            </div>
+                                        )}
 
-                                    <div className="message-content">
-                                        <span>
-                                            {message.role === "assistant"
-                                                ? "CryptoScope AI"
-                                                : "You"}
-                                        </span>
+                                        <div className="message-content">
+                                            <span>
+                                                {message.role
+                                                    === "assistant"
+                                                    ? "CryptoScope AI"
+                                                    : "You"}
+                                            </span>
 
-                                        <p>{message.content}</p>
+                                            <p>
+                                                {
+                                                    message.content
+                                                }
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            )}
 
                             {isLoading && (
                                 <div className="chat-message assistant">
-                                    <div className="message-avatar">AI</div>
+                                    <div className="message-avatar">
+                                        AI
+                                    </div>
 
                                     <div className="message-content">
-                                        <span>CryptoScope AI</span>
+                                        <span>
+                                            CryptoScope AI
+                                        </span>
 
                                         <div className="typing-indicator">
                                             <i />
@@ -193,27 +377,67 @@ function AiChatPage() {
                                     </div>
                                 </div>
                             )}
+
+                            {error && (
+                                <div
+                                    className="ai-chat-error"
+                                    role="alert"
+                                >
+                                    {error}
+                                </div>
+                            )}
+
+                            <div
+                                ref={messagesEndRef}
+                            />
                         </div>
 
-                        <form className="chat-form" onSubmit={handleSubmit}>
-                            <textarea
-                                rows="2"
-                                placeholder="Ask something about your portfolio..."
-                                value={input}
-                                onChange={(event) => setInput(event.target.value)}
-                                onKeyDown={(event) => {
-                                    if (event.key === "Enter" && !event.shiftKey) {
-                                        event.preventDefault();
-                                        handleSubmit(event);
+                        <form
+                            className="chat-form"
+                            onSubmit={handleSubmit}
+                        >
+                            <div className="chat-input-wrapper">
+                                <textarea
+                                    rows="2"
+                                    maxLength={
+                                        MAX_QUESTION_LENGTH
                                     }
-                                }}
-                            />
+                                    placeholder="Ask something about your portfolio..."
+                                    value={input}
+                                    onChange={(event) => {
+                                        setInput(
+                                            event.target.value
+                                        );
+
+                                        if (error) {
+                                            setError("");
+                                        }
+                                    }}
+                                    onKeyDown={
+                                        handleKeyDown
+                                    }
+                                    disabled={isLoading}
+                                />
+
+                                <small className="question-counter">
+                                    {input.length}
+                                    /
+                                    {
+                                        MAX_QUESTION_LENGTH
+                                    }
+                                </small>
+                            </div>
 
                             <button
                                 type="submit"
-                                disabled={!input.trim() || isLoading}
+                                disabled={
+                                    !input.trim()
+                                    || isLoading
+                                }
                             >
-                                {isLoading ? "Thinking..." : "Ask AI"}
+                                {isLoading
+                                    ? "Thinking..."
+                                    : "Ask AI"}
                             </button>
                         </form>
                     </section>

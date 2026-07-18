@@ -1,6 +1,8 @@
 package com.cryptoscope.core.ai;
 
 import com.cryptoscope.core.common.exception.AiServiceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -18,10 +20,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+
 @Service
 public class GeminiMarketInsightService
         implements MarketInsightService {
-
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(
+                    GeminiMarketInsightService.class
+            );
     private static final String GENERATE_CONTENT_URL =
             "https://generativelanguage.googleapis.com/"
                     + "v1beta/models/%s:generateContent";
@@ -178,39 +184,112 @@ public class GeminiMarketInsightService
     private void validateResponseStatus(
             HttpResponse<String> response
     ) {
-        if (response.statusCode() < 200
-                || response.statusCode() >= 300) {
+        int statusCode =
+                response.statusCode();
+
+        if (statusCode < 200
+                || statusCode >= 300) {
+
+            String responseBody =
+                    response.body() == null
+                            ? ""
+                            : response.body();
+
+            LOGGER.error(
+                    "Gemini request failed with status {} and response: {}",
+                    statusCode,
+                    abbreviate(responseBody, 1500)
+            );
+
             throw new AiServiceException(
-                    "Gemini service returned an unsuccessful response"
+                    "Gemini service returned HTTP status "
+                            + statusCode
             );
         }
     }
+    private String abbreviate(
+            String value,
+            int maximumLength
+    ) {
+        if (value == null) {
+            return "";
+        }
 
+        if (value.length() <= maximumLength) {
+            return value;
+        }
+
+        return value.substring(
+                0,
+                maximumLength
+        ) + "...";
+    }
     private String extractAnswer(
             String responseBody
     ) {
         try {
             JsonNode root =
-                    jsonMapper.readTree(responseBody);
+                    jsonMapper.readTree(
+                            responseBody
+                    );
 
-            JsonNode textNode = root
+            JsonNode partsNode = root
                     .path("candidates")
                     .path(0)
                     .path("content")
-                    .path("parts")
-                    .path(0)
-                    .path("text");
+                    .path("parts");
 
-            if (textNode.isMissingNode()
-                    || textNode.asText().isBlank()) {
+            if (!partsNode.isArray()) {
+                throw new AiServiceException(
+                        "Gemini response did not contain content parts"
+                );
+            }
+
+            StringBuilder answer =
+                    new StringBuilder();
+
+            for (JsonNode partNode : partsNode) {
+                JsonNode textNode =
+                        partNode.path("text");
+
+                if (
+                        textNode.isTextual()
+                                && !textNode.asText().isBlank()
+                ) {
+                    if (!answer.isEmpty()) {
+                        answer.append(
+                                System.lineSeparator()
+                        );
+                    }
+
+                    answer.append(
+                            textNode.asText().trim()
+                    );
+                }
+            }
+
+            if (answer.isEmpty()) {
+                LOGGER.error(
+                        "Gemini response contained no text: {}",
+                        abbreviate(
+                                responseBody,
+                                1500
+                        )
+                );
+
                 throw new AiServiceException(
                         "Gemini response did not contain an answer"
                 );
             }
 
-            return textNode.asText().trim();
+            return answer.toString();
 
         } catch (JacksonException exception) {
+            LOGGER.error(
+                    "Failed to parse Gemini response",
+                    exception
+            );
+
             throw new AiServiceException(
                     "Failed to parse the Gemini response",
                     exception
