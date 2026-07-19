@@ -1,5 +1,7 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY,
+    first_name VARCHAR(60) NOT NULL,
+    last_name VARCHAR(60) NOT NULL,
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     balance NUMERIC(18,2) NOT NULL,

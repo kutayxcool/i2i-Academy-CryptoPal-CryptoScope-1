@@ -5,6 +5,8 @@ import java.util.UUID;
 
 public record RegisterResponse(
         UUID userId,
+        String firstName,
+        String lastName,
         String username,
         BigDecimal balance
 ) {

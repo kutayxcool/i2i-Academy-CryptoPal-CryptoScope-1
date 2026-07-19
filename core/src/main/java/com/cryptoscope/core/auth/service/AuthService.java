@@ -38,26 +38,51 @@ public class AuthService {
     }
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
-        String username = request.username().trim();
+    public RegisterResponse register(
+            RegisterRequest request
+    ) {
+        String firstName =
+                request.firstName().trim();
 
-        if (userRepository.existsByUsernameIgnoreCase(username)) {
-            throw new UsernameAlreadyExistsException(username);
+        String lastName =
+                request.lastName().trim();
+
+        String username =
+                request.username().trim();
+
+        if (
+                userRepository.existsByUsernameIgnoreCase(
+                        username
+                )
+        ) {
+            throw new UsernameAlreadyExistsException(
+                    username
+            );
         }
 
-        String passwordHash = passwordEncoder.encode(request.password());
-        BigDecimal initialBalance = generateInitialBalance();
+        String passwordHash =
+                passwordEncoder.encode(
+                        request.password()
+                );
+
+        BigDecimal initialBalance =
+                generateInitialBalance();
 
         User user = new User(
+                firstName,
+                lastName,
                 username,
                 passwordHash,
                 initialBalance
         );
 
-        User savedUser = userRepository.save(user);
+        User savedUser =
+                userRepository.save(user);
 
         return new RegisterResponse(
                 savedUser.getId(),
+                savedUser.getFirstName(),
+                savedUser.getLastName(),
                 savedUser.getUsername(),
                 savedUser.getBalance()
         );
@@ -85,6 +110,8 @@ public class AuthService {
         return new LoginResponse(
                 token,
                 user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
                 user.getUsername(),
                 user.getBalance()
         );
