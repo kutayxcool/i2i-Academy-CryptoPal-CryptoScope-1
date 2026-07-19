@@ -1,13 +1,49 @@
+import {
+    getAssetIcon,
+} from "../constants/assetCatalog";
+
 import "./CryptoCard.css";
 
-function formatUpdatedAt(updatedAt) {
-    const date = new Date(updatedAt);
+function formatPrice(value) {
+    const numericValue =
+        Number(value);
 
-    if (Number.isNaN(date.getTime())) {
-        return "Latest cached price";
+    if (!Number.isFinite(numericValue)) {
+        return "Unavailable";
     }
 
-    return `Updated at ${date.toLocaleTimeString()}`;
+    let maximumFractionDigits = 2;
+
+    if (numericValue < 1) {
+        maximumFractionDigits = 8;
+    } else if (numericValue < 100) {
+        maximumFractionDigits = 4;
+    }
+
+    return numericValue.toLocaleString(
+        "en-US",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits,
+        }
+    );
+}
+
+function formatUpdatedAt(updatedAt) {
+    const date =
+        new Date(updatedAt);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Latest cached market price";
+    }
+
+    return `Updated ${date.toLocaleTimeString(
+        "en-US",
+        {
+            hour: "2-digit",
+            minute: "2-digit",
+        }
+    )}`;
 }
 
 function CryptoCard({
@@ -17,50 +53,75 @@ function CryptoCard({
 }) {
     return (
         <article className="crypto-card">
-            <div className="crypto-card-header">
-                <div>
-                    <h2>{crypto.symbol}</h2>
-                    <p>{crypto.name}</p>
+            <div className="crypto-card-top">
+                <div className="crypto-identity">
+                    <span className="crypto-card-icon">
+                        {getAssetIcon(
+                            crypto.symbol
+                        )}
+                    </span>
+
+                    <div>
+                        <h3>{crypto.name}</h3>
+                        <p>{crypto.symbol}/USD</p>
+                    </div>
                 </div>
 
                 <span className="crypto-live">
+                    <span />
                     Live
                 </span>
             </div>
 
-            <div className="crypto-price">
-                $
-                {crypto.price.toLocaleString(
-                    "en-US",
-                    {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 8,
-                    }
-                )}
+            <div className="crypto-card-price">
+                <span>Current price</span>
+
+                <strong>
+                    $
+                    {formatPrice(
+                        crypto.price
+                    )}
+                </strong>
             </div>
 
-            <small className="crypto-updated">
-                {formatUpdatedAt(
-                    crypto.updatedAt
-                )}
-            </small>
+            <div className="crypto-card-meta">
+                <span>
+                    Market source
+                    <strong>Binance</strong>
+                </span>
 
-            <div className="crypto-actions">
-                <button
-                    type="button"
-                    className="buy-button"
-                    onClick={onBuy}
-                >
-                    Buy
-                </button>
+                <span>
+                    Status
+                    <strong className="online">
+                        Available
+                    </strong>
+                </span>
+            </div>
 
-                <button
-                    type="button"
-                    className="sell-button"
-                    onClick={onSell}
-                >
-                    Sell
-                </button>
+            <div className="crypto-card-footer">
+                <small>
+                    {formatUpdatedAt(
+                        crypto.updatedAt
+                    )}
+                </small>
+
+                <div className="crypto-actions">
+                    <button
+                        type="button"
+                        className="buy-button"
+                        onClick={onBuy}
+                    >
+                        Buy
+                    </button>
+
+                    <button
+                        type="button"
+                        className="sell-button"
+                        onClick={onSell}
+                    >
+                        Sell
+                    </button>
+                </div>
             </div>
         </article>
     );

@@ -1,27 +1,110 @@
-import { useState } from "react";
 import {
-    Link,
+    useState,
+} from "react";
+
+import {
     useLocation,
     useNavigate,
 } from "react-router-dom";
 
-import { login as loginRequest } from "../services/authService";
-import { useAuth } from "../context/AuthContext";
-import "../styles/Auth.css";
+import AuthLayout from "../components/AuthLayout";
+
+import {
+    login as loginRequest,
+} from "../services/authService";
+
+import {
+    useAuth,
+} from "../context/AuthContext";
+
+function EyeIcon({
+    visible,
+}) {
+    if (visible) {
+        return (
+            <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+            >
+                <path
+                    d="M3 3L21 21"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.8"
+                />
+
+                <path
+                    d="M10.6 10.7A2 2 0 0013.3 13.4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.8"
+                />
+
+                <path
+                    d="M9.9 4.3A10.5 10.5 0 0112 4C17.5 4 21 12 21 12A16.8 16.8 0 0118.2 15.8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.8"
+                />
+
+                <path
+                    d="M6.2 6.2C4 8 3 12 3 12S6.5 20 12 20C13.4 20 14.7 19.5 15.8 18.8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeWidth="1.8"
+                />
+            </svg>
+        );
+    }
+
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+        >
+            <path
+                d="M3 12S6.5 4 12 4S21 12 21 12S17.5 20 12 20S3 12 3 12Z"
+                fill="none"
+                stroke="currentColor"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+            />
+
+            <circle
+                cx="12"
+                cy="12"
+                r="2.8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+            />
+        </svg>
+    );
+}
 
 function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const { login: saveAuthenticatedUser } =
-        useAuth();
+    const {
+        login: saveAuthenticatedUser,
+    } = useAuth();
 
     const [formData, setFormData] = useState({
         username: "",
         password: "",
     });
 
-    const [error, setError] = useState("");
+    const [showPassword, setShowPassword] =
+        useState(false);
+
+    const [error, setError] =
+        useState("");
+
     const [isSubmitting, setIsSubmitting] =
         useState(false);
 
@@ -29,12 +112,21 @@ function LoginPage() {
         location.state?.message || "";
 
     const handleChange = (event) => {
-        const { name, value } = event.target;
+        const {
+            name,
+            value,
+        } = event.target;
 
-        setFormData((previousData) => ({
-            ...previousData,
-            [name]: value,
-        }));
+        setFormData(
+            (previousData) => ({
+                ...previousData,
+                [name]: value,
+            })
+        );
+
+        if (error) {
+            setError("");
+        }
     };
 
     const handleSubmit = async (event) => {
@@ -49,7 +141,7 @@ function LoginPage() {
 
         if (!username || !password) {
             setError(
-                "Please fill in all fields."
+                "Please enter your username and password."
             );
             return;
         }
@@ -57,10 +149,11 @@ function LoginPage() {
         setIsSubmitting(true);
 
         try {
-            const response = await loginRequest({
-                username,
-                password,
-            });
+            const response =
+                await loginRequest({
+                    username,
+                    password,
+                });
 
             saveAuthenticatedUser(
                 response.data
@@ -85,84 +178,221 @@ function LoginPage() {
     };
 
     return (
-        <main className="auth-page">
-            <section className="auth-card">
-                <div className="auth-logo">
-                    CryptoScope
-                </div>
-
-                <h1>Welcome Back</h1>
-
-                <p className="auth-subtitle">
-                    Sign in to monitor the market
-                    and manage your portfolio.
-                </p>
-
-                {successMessage && (
-                    <div className="auth-success">
-                        {successMessage}
-                    </div>
-                )}
-
-                {error && (
-                    <div className="auth-error">
-                        {error}
-                    </div>
-                )}
-
-                <form
-                    className="auth-form"
-                    onSubmit={handleSubmit}
+        <AuthLayout
+            mode="login"
+            eyebrow="Welcome back"
+            title="Sign in to your account"
+            subtitle="Enter your details to access your portfolio and live market tools."
+            footerText="New to CryptoScope?"
+            footerLinkText="Create an account"
+            footerLinkTo="/register"
+        >
+            {successMessage && (
+                <div
+                    className="auth-alert auth-alert-success"
+                    role="status"
                 >
+                    <span className="auth-alert-icon">
+                        ✓
+                    </span>
+
+                    <span>{successMessage}</span>
+                </div>
+            )}
+
+            {error && (
+                <div
+                    className="auth-alert auth-alert-error"
+                    role="alert"
+                >
+                    <span className="auth-alert-icon">
+                        !
+                    </span>
+
+                    <span>{error}</span>
+                </div>
+            )}
+
+            <form
+                className="auth-form"
+                onSubmit={handleSubmit}
+            >
+                <div className="auth-field">
                     <label htmlFor="username">
                         Username
                     </label>
 
-                    <input
-                        id="username"
-                        name="username"
-                        type="text"
-                        placeholder="Enter your username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        autoComplete="username"
-                    />
+                    <div className="auth-input-shell">
+                        <span className="auth-input-leading">
+                            <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <circle
+                                    cx="12"
+                                    cy="8"
+                                    r="3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                />
 
-                    <label htmlFor="password">
-                        Password
-                    </label>
+                                <path
+                                    d="M5 20C5.5 15.8 8.1 13.5 12 13.5C15.9 13.5 18.5 15.8 19 20"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeWidth="1.8"
+                                />
+                            </svg>
+                        </span>
 
-                    <input
-                        id="password"
-                        name="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        autoComplete="current-password"
-                    />
+                        <input
+                            id="username"
+                            name="username"
+                            type="text"
+                            placeholder="Enter your username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            disabled={isSubmitting}
+                            autoComplete="username"
+                            maxLength="50"
+                            spellCheck="false"
+                            autoFocus
+                        />
+                    </div>
+                </div>
 
-                    <button
-                        type="submit"
-                        className="auth-button"
-                        disabled={isSubmitting}
-                    >
+                <div className="auth-field">
+                    <div className="auth-label-row">
+                        <label htmlFor="password">
+                            Password
+                        </label>
+
+                        <span className="auth-label-note">
+                            Minimum 8 characters
+                        </span>
+                    </div>
+
+                    <div className="auth-input-shell">
+                        <span className="auth-input-leading">
+                            <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <rect
+                                    x="5"
+                                    y="10"
+                                    width="14"
+                                    height="10"
+                                    rx="2.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                />
+
+                                <path
+                                    d="M8 10V7.5C8 5.3 9.8 3.5 12 3.5C14.2 3.5 16 5.3 16 7.5V10"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeLinecap="round"
+                                    strokeWidth="1.8"
+                                />
+                            </svg>
+                        </span>
+
+                        <input
+                            id="password"
+                            name="password"
+                            type={
+                                showPassword
+                                    ? "text"
+                                    : "password"
+                            }
+                            placeholder="Enter your password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            disabled={isSubmitting}
+                            autoComplete="current-password"
+                            maxLength="100"
+                        />
+
+                        <button
+                            type="button"
+                            className="auth-password-toggle"
+                            onClick={() =>
+                                setShowPassword(
+                                    (currentValue) =>
+                                        !currentValue
+                                )
+                            }
+                            disabled={isSubmitting}
+                            aria-label={
+                                showPassword
+                                    ? "Hide password"
+                                    : "Show password"
+                            }
+                        >
+                            <EyeIcon
+                                visible={showPassword}
+                            />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="auth-session-note">
+                    <span className="auth-session-icon">
+                        <svg
+                            viewBox="0 0 20 20"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M10 2.5L16 5.2V9.4C16 13.1 13.6 16.1 10 17.5C6.4 16.1 4 13.1 4 9.4V5.2L10 2.5Z"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinejoin="round"
+                                strokeWidth="1.5"
+                            />
+                        </svg>
+                    </span>
+
+                    Your session is protected with a
+                    temporary authentication token.
+                </div>
+
+                <button
+                    type="submit"
+                    className="auth-primary-button"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting && (
+                        <span className="auth-spinner" />
+                    )}
+
+                    <span>
                         {isSubmitting
                             ? "Signing in..."
-                            : "Login"}
-                    </button>
-                </form>
+                            : "Sign in"}
+                    </span>
 
-                <p className="auth-footer">
-                    Don&apos;t have an account?{" "}
-                    <Link to="/register">
-                        Create an account
-                    </Link>
-                </p>
-            </section>
-        </main>
+                    {!isSubmitting && (
+                        <svg
+                            viewBox="0 0 20 20"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M4 10H16M11 5L16 10L11 15"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="1.8"
+                            />
+                        </svg>
+                    )}
+                </button>
+            </form>
+        </AuthLayout>
     );
 }
 
