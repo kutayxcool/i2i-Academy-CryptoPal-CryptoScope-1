@@ -10,6 +10,11 @@ public interface TradeTransactionRepository
         extends JpaRepository<TradeTransaction, UUID> {
 
     List<TradeTransaction>
+    findAllByUserIdOrderByExecutedAtAsc(
+            UUID userId
+    );
+
+    List<TradeTransaction>
     findAllByUserIdOrderByExecutedAtDesc(
             UUID userId
     );

@@ -36,3 +36,21 @@ CREATE TABLE price_history (
 
 CREATE INDEX idx_price_history_symbol_recorded_at
     ON price_history(symbol, recorded_at DESC);
+
+    CREATE TABLE agenda_notes (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL
+            REFERENCES users(id)
+            ON DELETE CASCADE,
+        note_date DATE NOT NULL,
+        title VARCHAR(120) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
+    );
+
+    CREATE INDEX idx_agenda_notes_user_date
+        ON agenda_notes(user_id, note_date);
+
+    CREATE INDEX idx_agenda_notes_user_created
+        ON agenda_notes(user_id, created_at DESC);

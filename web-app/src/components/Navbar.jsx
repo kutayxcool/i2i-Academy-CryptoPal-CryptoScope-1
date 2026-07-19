@@ -107,7 +107,41 @@ function NavigationIcon({
             </svg>
         );
     }
+if (type === "agenda") {
+    return (
+        <svg
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+        >
+            <rect
+                x="3"
+                y="4"
+                width="14"
+                height="13"
+                rx="2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+            />
 
+            <path
+                d="M6.5 2.5V5.5M13.5 2.5V5.5M3 8H17"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.6"
+            />
+
+            <path
+                d="M6.5 11H8M10 11H11.5M13.5 11H15M6.5 14H8M10 14H11.5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.5"
+            />
+        </svg>
+    );
+}
     if (type === "ai") {
         return (
             <svg
@@ -262,7 +296,18 @@ function Navbar() {
                         <NavigationIcon type="portfolio" />
                         Portfolio
                     </NavLink>
-
+<NavLink
+    to="/agenda"
+    onClick={closeProfileMenu}
+    className={({ isActive }) =>
+        isActive
+            ? "navbar-link active"
+            : "navbar-link"
+    }
+>
+    <NavigationIcon type="agenda" />
+    Agenda
+</NavLink>
                     <NavLink
                         to="/ai-chat"
                         onClick={closeProfileMenu}

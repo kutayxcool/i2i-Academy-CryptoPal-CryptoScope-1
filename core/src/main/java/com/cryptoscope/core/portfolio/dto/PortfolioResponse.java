@@ -5,6 +5,10 @@ import java.util.List;
 
 public record PortfolioResponse(
         BigDecimal balance,
+        BigDecimal cryptoInvestedValue,
+        BigDecimal cryptoCurrentValue,
+        BigDecimal cryptoProfitLossAmount,
+        BigDecimal cryptoProfitLossPercentage,
         List<HoldingResponse> holdings
 ) {
 }

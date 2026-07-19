@@ -852,3 +852,82 @@
     margin-top: 0;
   }
 }
+.portfolio-summary-icon.performance {
+  background: rgba(129, 140, 248, 0.13);
+  color: #c7d2fe;
+}
+
+.portfolio-summary-card.performance.positive {
+  border-color: rgba(52, 211, 153, 0.22);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(16, 185, 129, 0.09),
+      rgba(11, 20, 40, 0.68)
+    );
+}
+
+.portfolio-summary-card.performance.negative {
+  border-color: rgba(248, 113, 113, 0.22);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(239, 68, 68, 0.08),
+      rgba(11, 20, 40, 0.68)
+    );
+}
+
+.portfolio-performance-value.positive,
+.portfolio-profit-loss.positive {
+  color: #6ee7b7 !important;
+}
+
+.portfolio-performance-value.negative,
+.portfolio-profit-loss.negative {
+  color: #fca5a5 !important;
+}
+
+.portfolio-performance-value.neutral,
+.portfolio-profit-loss.neutral {
+  color: #94a3b8 !important;
+}
+
+.portfolio-table-value small {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portfolio-assets-table-header,
+.portfolio-asset-row {
+  grid-template-columns:
+    minmax(155px, 1.35fr)
+    minmax(75px, 0.65fr)
+    minmax(95px, 0.85fr)
+    minmax(95px, 0.85fr)
+    minmax(95px, 0.85fr)
+    minmax(95px, 0.85fr)
+    minmax(110px, 1fr);
+  gap: 11px;
+}
+
+@media (max-width: 1120px) {
+  .portfolio-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-assets-table-header,
+  .portfolio-asset-row {
+    grid-template-columns:
+      minmax(155px, 1.35fr)
+      minmax(75px, 0.65fr)
+      minmax(95px, 0.85fr)
+      minmax(95px, 0.85fr)
+      minmax(95px, 0.85fr)
+      minmax(95px, 0.85fr)
+      minmax(110px, 1fr);
+  }
+}

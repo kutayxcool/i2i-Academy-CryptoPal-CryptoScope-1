@@ -42,11 +42,28 @@ function getApiErrorMessage(
         || fallbackMessage;
 }
 
-function formatCurrency(value) {
+function toFiniteNumber(value) {
+    if (
+        value === null
+        || value === undefined
+        || value === ""
+    ) {
+        return null;
+    }
+
     const numericValue =
         Number(value);
 
-    if (!Number.isFinite(numericValue)) {
+    return Number.isFinite(numericValue)
+        ? numericValue
+        : null;
+}
+
+function formatCurrency(value) {
+    const numericValue =
+        toFiniteNumber(value);
+
+    if (numericValue === null) {
         return "0.00";
     }
 
@@ -61,17 +78,17 @@ function formatCurrency(value) {
 
 function formatPrice(value) {
     const numericValue =
-        Number(value);
+        toFiniteNumber(value);
 
-    if (!Number.isFinite(numericValue)) {
+    if (numericValue === null) {
         return "Unavailable";
     }
 
     let maximumFractionDigits = 2;
 
-    if (numericValue < 1) {
+    if (Math.abs(numericValue) < 1) {
         maximumFractionDigits = 8;
-    } else if (numericValue < 100) {
+    } else if (Math.abs(numericValue) < 100) {
         maximumFractionDigits = 4;
     }
 
@@ -86,9 +103,9 @@ function formatPrice(value) {
 
 function formatAmount(value) {
     const numericValue =
-        Number(value);
+        toFiniteNumber(value);
 
-    if (!Number.isFinite(numericValue)) {
+    if (numericValue === null) {
         return "0";
     }
 
@@ -101,9 +118,68 @@ function formatAmount(value) {
     );
 }
 
-function formatTransactionDate(
-    executedAt
-) {
+function formatSignedCurrency(value) {
+    const numericValue =
+        toFiniteNumber(value);
+
+    if (numericValue === null) {
+        return "$0.00";
+    }
+
+    const sign =
+        numericValue > 0
+            ? "+"
+            : numericValue < 0
+                ? "-"
+                : "";
+
+    return `${sign}$${formatCurrency(
+        Math.abs(numericValue)
+    )}`;
+}
+
+function formatSignedPercentage(value) {
+    const numericValue =
+        toFiniteNumber(value);
+
+    if (numericValue === null) {
+        return "0.00%";
+    }
+
+    const sign =
+        numericValue > 0
+            ? "+"
+            : numericValue < 0
+                ? "-"
+                : "";
+
+    return `${sign}${Math.abs(
+        numericValue
+    ).toFixed(2)}%`;
+}
+
+function getPerformanceClass(value) {
+    const numericValue =
+        toFiniteNumber(value);
+
+    if (
+        numericValue !== null
+        && numericValue > 0
+    ) {
+        return "positive";
+    }
+
+    if (
+        numericValue !== null
+        && numericValue < 0
+    ) {
+        return "negative";
+    }
+
+    return "neutral";
+}
+
+function formatTransactionDate(executedAt) {
     const date =
         new Date(executedAt);
 
@@ -126,9 +202,7 @@ function formatTransactionDate(
 function formatUpdateTime(date) {
     if (
         !date
-        || Number.isNaN(
-            date.getTime()
-        )
+        || Number.isNaN(date.getTime())
     ) {
         return "Waiting for market prices";
     }
@@ -143,9 +217,7 @@ function formatUpdateTime(date) {
     );
 }
 
-function createPriceMap(
-    marketPrices
-) {
+function createPriceMap(marketPrices) {
     if (!Array.isArray(marketPrices)) {
         return new Map();
     }
@@ -156,7 +228,7 @@ function createPriceMap(
                 marketPrice.symbol,
                 {
                     price:
-                        Number(
+                        toFiniteNumber(
                             marketPrice.price
                         ),
 
@@ -193,25 +265,29 @@ function findLatestMarketUpdate(
     );
 }
 
-function getTransactionTotal(
-    transaction
-) {
+function getTransactionTotal(transaction) {
     const providedTotal =
-        Number(transaction.total);
+        toFiniteNumber(
+            transaction.total
+        );
 
-    if (Number.isFinite(providedTotal)) {
+    if (providedTotal !== null) {
         return providedTotal;
     }
 
     const amount =
-        Number(transaction.amount);
+        toFiniteNumber(
+            transaction.amount
+        );
 
     const price =
-        Number(transaction.price);
+        toFiniteNumber(
+            transaction.price
+        );
 
     if (
-        !Number.isFinite(amount)
-        || !Number.isFinite(price)
+        amount === null
+        || price === null
     ) {
         return 0;
     }
@@ -228,7 +304,9 @@ function PortfolioPage() {
         balance,
         setBalance,
     ] = useState(
-        Number(user.balance) || 0
+        toFiniteNumber(
+            user?.balance
+        ) ?? 0
     );
 
     const [
@@ -272,9 +350,10 @@ function PortfolioPage() {
     ] = useState("ALL");
 
     const displayName =
-        user.firstName
-        || user.fullName
-        || user.username;
+        user?.firstName
+        || user?.fullName
+        || user?.username
+        || "Trader";
 
     const loadPortfolioData =
         useCallback(
@@ -310,9 +389,9 @@ function PortfolioPage() {
                         marketResponse.data;
 
                     setBalance(
-                        Number(
+                        toFiniteNumber(
                             portfolioData.balance
-                        ) || 0
+                        ) ?? 0
                     );
 
                     setHoldings(
@@ -380,60 +459,128 @@ function PortfolioPage() {
             () =>
                 holdings
                     .map((holding) => {
-                        const marketPrice =
-                            priceMap.get(
+                        const symbol =
+                            String(
                                 holding.symbol
-                            );
+                                || ""
+                            ).toUpperCase();
+
+                        const marketPrice =
+                            priceMap.get(symbol);
 
                         const amount =
-                            Number(
+                            toFiniteNumber(
                                 holding.amount
+                            ) ?? 0;
+
+                        const backendCurrentPrice =
+                            toFiniteNumber(
+                                holding.currentPrice
                             );
 
-                        const price =
-                            marketPrice?.price;
+                        const cachedCurrentPrice =
+                            toFiniteNumber(
+                                marketPrice?.price
+                            );
 
-                        const hasValidPrice =
-                            Number.isFinite(
-                                price
+                        const currentPrice =
+                            backendCurrentPrice
+                            ?? cachedCurrentPrice;
+
+                        const averageBuyPrice =
+                            toFiniteNumber(
+                                holding.averageBuyPrice
+                            ) ?? 0;
+
+                        const backendInvestedValue =
+                            toFiniteNumber(
+                                holding.investedValue
+                            );
+
+                        const investedValue =
+                            backendInvestedValue
+                            ?? (
+                                amount
+                                * averageBuyPrice
+                            );
+
+                        const backendCurrentValue =
+                            toFiniteNumber(
+                                holding.currentValue
+                            );
+
+                        const currentValue =
+                            backendCurrentValue
+                            ?? (
+                                currentPrice !== null
+                                    ? amount
+                                    * currentPrice
+                                    : 0
+                            );
+
+                        const backendProfitLossAmount =
+                            toFiniteNumber(
+                                holding.profitLossAmount
+                            );
+
+                        const profitLossAmount =
+                            backendProfitLossAmount
+                            ?? (
+                                investedValue > 0
+                                    ? currentValue
+                                    - investedValue
+                                    : 0
+                            );
+
+                        const backendProfitLossPercentage =
+                            toFiniteNumber(
+                                holding
+                                    .profitLossPercentage
+                            );
+
+                        const profitLossPercentage =
+                            backendProfitLossPercentage
+                            ?? (
+                                investedValue > 0
+                                    ? (
+                                        profitLossAmount
+                                        / investedValue
+                                    ) * 100
+                                    : 0
                             );
 
                         return {
-                            symbol:
-                                holding.symbol,
+                            symbol,
 
                             name:
                                 getAssetName(
-                                    holding.symbol
+                                    symbol
                                 ),
 
                             icon:
                                 getAssetIcon(
-                                    holding.symbol
+                                    symbol
                                 ),
 
-                            amount:
-                                Number.isFinite(
-                                    amount
-                                )
-                                    ? amount
-                                    : 0,
+                            amount,
 
                             price:
-                                hasValidPrice
-                                    ? price
-                                    : null,
+                                currentPrice,
+
+                            averageBuyPrice,
+
+                            investedValue,
+
+                            currentValue,
+
+                            profitLossAmount,
+
+                            profitLossPercentage,
 
                             updatedAt:
                                 marketPrice
                                     ?.updatedAt
                                 || null,
-
-                            currentValue:
-                                hasValidPrice
-                                    ? amount
-                                        * price
-                                    : 0,
                         };
                     })
                     .sort(
@@ -482,6 +629,33 @@ function PortfolioPage() {
                 ),
             [portfolioAssets]
         );
+
+    const cryptoInvestedValue =
+        useMemo(
+            () =>
+                portfolioAssets.reduce(
+                    (
+                        totalValue,
+                        asset
+                    ) =>
+                        totalValue
+                        + asset.investedValue,
+                    0
+                ),
+            [portfolioAssets]
+        );
+
+    const totalProfitLossAmount =
+        cryptoValue
+        - cryptoInvestedValue;
+
+    const totalProfitLossPercentage =
+        cryptoInvestedValue > 0
+            ? (
+                totalProfitLossAmount
+                / cryptoInvestedValue
+            ) * 100
+            : 0;
 
     const totalPortfolioValue =
         balance + cryptoValue;
@@ -546,8 +720,7 @@ function PortfolioPage() {
                         </span>
 
                         <h1>
-                            Your financial
-                            overview,
+                            Your financial overview,
                             <span>
                                 {" "}
                                 {displayName}
@@ -557,7 +730,8 @@ function PortfolioPage() {
                         <p>
                             Review your virtual cash
                             balance, cryptocurrency
-                            positions and complete
+                            positions, investment
+                            performance and complete
                             transaction history.
                         </p>
                     </div>
@@ -632,7 +806,8 @@ function PortfolioPage() {
 
                         <p>
                             Retrieving balances,
-                            holdings and market prices.
+                            holdings, cost basis and
+                            current market prices.
                         </p>
                     </section>
                 ) : (
@@ -710,27 +885,49 @@ function PortfolioPage() {
                                 </small>
                             </article>
 
-                            <article className="portfolio-summary-card">
+                            <article
+                                className={
+                                    `portfolio-summary-card performance ${
+                                        getPerformanceClass(
+                                            totalProfitLossAmount
+                                        )
+                                    }`
+                                }
+                            >
                                 <div className="portfolio-summary-label">
                                     <span>
-                                        Open positions
+                                        Unrealized P/L
                                     </span>
 
-                                    <span className="portfolio-summary-icon positions">
-                                        #
+                                    <span className="portfolio-summary-icon performance">
+                                        %
                                     </span>
                                 </div>
 
-                                <strong>
-                                    {
-                                        portfolioAssets
-                                            .length
+                                <strong
+                                    className={
+                                        `portfolio-performance-value ${
+                                            getPerformanceClass(
+                                                totalProfitLossAmount
+                                            )
+                                        }`
                                     }
+                                >
+                                    {formatSignedCurrency(
+                                        totalProfitLossAmount
+                                    )}
                                 </strong>
 
                                 <small>
-                                    Cryptocurrency
-                                    holdings
+                                    {formatSignedPercentage(
+                                        totalProfitLossPercentage
+                                    )}
+                                    {" "}
+                                    across
+                                    {" "}
+                                    {portfolioAssets.length}
+                                    {" "}
+                                    open positions
                                 </small>
                             </article>
                         </section>
@@ -771,44 +968,33 @@ function PortfolioPage() {
                                         </strong>
 
                                         <p>
-                                            Purchased
-                                            assets will
-                                            appear here.
+                                            Purchased assets
+                                            will appear here.
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="portfolio-allocation-list">
                                         {portfolioAssetsWithAllocation.map(
-                                            (
-                                                asset
-                                            ) => (
+                                            (asset) => (
                                                 <div
                                                     className="portfolio-allocation-item"
-                                                    key={
-                                                        asset.symbol
-                                                    }
+                                                    key={asset.symbol}
                                                 >
                                                     <div className="portfolio-allocation-copy">
                                                         <span className="portfolio-asset-icon small">
-                                                            {
-                                                                asset.icon
-                                                            }
+                                                            {asset.icon}
                                                         </span>
 
                                                         <div>
                                                             <strong>
-                                                                {
-                                                                    asset.symbol
-                                                                }
+                                                                {asset.symbol}
                                                             </strong>
 
                                                             <span>
-                                                                {
-                                                                    asset.allocation
-                                                                        .toFixed(
-                                                                            1
-                                                                        )
-                                                                }
+                                                                {asset.allocation
+                                                                    .toFixed(
+                                                                        1
+                                                                    )}
                                                                 %
                                                             </span>
                                                         </div>
@@ -845,20 +1031,15 @@ function PortfolioPage() {
                                         </span>
 
                                         <strong>
-                                            {
-                                                largestPosition
-                                                    .name
-                                            }
+                                            {largestPosition.name}
                                         </strong>
 
                                         <small>
-                                            {
-                                                largestPosition
-                                                    .allocation
-                                                    .toFixed(
-                                                        1
-                                                    )
-                                            }
+                                            {largestPosition
+                                                .allocation
+                                                .toFixed(
+                                                    1
+                                                )}
                                             % of crypto
                                             holdings
                                         </small>
@@ -878,9 +1059,12 @@ function PortfolioPage() {
                                         </h2>
 
                                         <p>
-                                            Values use the
-                                            latest cached
-                                            market prices.
+                                            Profit and loss
+                                            compares your
+                                            weighted average
+                                            purchase price with
+                                            the latest cached
+                                            market price.
                                         </p>
                                     </div>
 
@@ -905,9 +1089,8 @@ function PortfolioPage() {
                                         </strong>
 
                                         <p>
-                                            Visit the
-                                            market to
-                                            complete your
+                                            Visit the market
+                                            to complete your
                                             first virtual
                                             trade.
                                         </p>
@@ -928,108 +1111,156 @@ function PortfolioPage() {
                                             </span>
 
                                             <span>
-                                                Price
+                                                Average buy
                                             </span>
 
                                             <span>
-                                                Value
+                                                Current price
                                             </span>
 
                                             <span>
-                                                Allocation
+                                                Cost basis
+                                            </span>
+
+                                            <span>
+                                                Current value
+                                            </span>
+
+                                            <span>
+                                                Profit / Loss
                                             </span>
                                         </div>
 
                                         {portfolioAssetsWithAllocation.map(
-                                            (
-                                                asset
-                                            ) => (
-                                                <div
-                                                    className="portfolio-asset-row"
-                                                    key={
-                                                        asset.symbol
-                                                    }
-                                                >
-                                                    <div className="portfolio-asset-identity">
-                                                        <span className="portfolio-asset-icon">
-                                                            {
-                                                                asset.icon
-                                                            }
-                                                        </span>
+                                            (asset) => {
+                                                const performanceClass =
+                                                    getPerformanceClass(
+                                                        asset
+                                                            .profitLossAmount
+                                                    );
 
-                                                        <div>
+                                                return (
+                                                    <div
+                                                        className="portfolio-asset-row"
+                                                        key={asset.symbol}
+                                                    >
+                                                        <div className="portfolio-asset-identity">
+                                                            <span className="portfolio-asset-icon">
+                                                                {asset.icon}
+                                                            </span>
+
+                                                            <div>
+                                                                <strong>
+                                                                    {asset.name}
+                                                                </strong>
+
+                                                                <span>
+                                                                    {asset.symbol}
+                                                                    /USD
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Quantity
+                                                            </span>
+
                                                             <strong>
-                                                                {
-                                                                    asset.name
+                                                                {formatAmount(
+                                                                    asset.amount
+                                                                )}
+                                                            </strong>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Average buy
+                                                            </span>
+
+                                                            <strong>
+                                                                $
+                                                                {formatPrice(
+                                                                    asset.averageBuyPrice
+                                                                )}
+                                                            </strong>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Current price
+                                                            </span>
+
+                                                            <strong>
+                                                                {asset.price
+                                                                    !== null
+                                                                    ? `$${formatPrice(
+                                                                        asset.price
+                                                                    )}`
+                                                                    : "Unavailable"}
+                                                            </strong>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Cost basis
+                                                            </span>
+
+                                                            <strong>
+                                                                $
+                                                                {formatCurrency(
+                                                                    asset.investedValue
+                                                                )}
+                                                            </strong>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Current value
+                                                            </span>
+
+                                                            <strong className="emphasized">
+                                                                $
+                                                                {formatCurrency(
+                                                                    asset.currentValue
+                                                                )}
+                                                            </strong>
+                                                        </div>
+
+                                                        <div className="portfolio-table-value">
+                                                            <span>
+                                                                Profit / Loss
+                                                            </span>
+
+                                                            <strong
+                                                                className={
+                                                                    `portfolio-profit-loss ${
+                                                                        performanceClass
+                                                                    }`
                                                                 }
+                                                            >
+                                                                {formatSignedCurrency(
+                                                                    asset
+                                                                        .profitLossAmount
+                                                                )}
                                                             </strong>
 
-                                                            <span>
-                                                                {
-                                                                    asset.symbol
+                                                            <small
+                                                                className={
+                                                                    `portfolio-profit-loss ${
+                                                                        performanceClass
+                                                                    }`
                                                                 }
-                                                                /USD
-                                                            </span>
+                                                            >
+                                                                {formatSignedPercentage(
+                                                                    asset
+                                                                        .profitLossPercentage
+                                                                )}
+                                                            </small>
                                                         </div>
                                                     </div>
-
-                                                    <div className="portfolio-table-value">
-                                                        <span>
-                                                            Quantity
-                                                        </span>
-
-                                                        <strong>
-                                                            {formatAmount(
-                                                                asset.amount
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="portfolio-table-value">
-                                                        <span>
-                                                            Price
-                                                        </span>
-
-                                                        <strong>
-                                                            {asset.price
-                                                                !== null
-                                                                ? `$${formatPrice(
-                                                                    asset.price
-                                                                )}`
-                                                                : "Unavailable"}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="portfolio-table-value">
-                                                        <span>
-                                                            Value
-                                                        </span>
-
-                                                        <strong className="emphasized">
-                                                            $
-                                                            {formatCurrency(
-                                                                asset.currentValue
-                                                            )}
-                                                        </strong>
-                                                    </div>
-
-                                                    <div className="portfolio-table-value">
-                                                        <span>
-                                                            Allocation
-                                                        </span>
-
-                                                        <strong>
-                                                            {
-                                                                asset.allocation
-                                                                    .toFixed(
-                                                                        1
-                                                                    )
-                                                            }
-                                                            %
-                                                        </strong>
-                                                    </div>
-                                                </div>
-                                            )
+                                                );
+                                            }
                                         )}
                                     </div>
                                 )}
@@ -1059,14 +1290,10 @@ function PortfolioPage() {
                                         "BUY",
                                         "SELL",
                                     ].map(
-                                        (
-                                            filter
-                                        ) => (
+                                        (filter) => (
                                             <button
                                                 type="button"
-                                                key={
-                                                    filter
-                                                }
+                                                key={filter}
                                                 className={
                                                     transactionFilter
                                                         === filter
@@ -1079,9 +1306,7 @@ function PortfolioPage() {
                                                     )
                                                 }
                                             >
-                                                {
-                                                    filter
-                                                }
+                                                {filter}
                                             </button>
                                         )
                                     )}
@@ -1135,9 +1360,7 @@ function PortfolioPage() {
 
                                         <tbody>
                                             {filteredTransactions.map(
-                                                (
-                                                    transaction
-                                                ) => (
+                                                (transaction) => (
                                                     <tr
                                                         key={
                                                             transaction.id
