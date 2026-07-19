@@ -1,0 +1,46 @@
+package com.cryptoscope.core.auth.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record RegisterRequest(
+
+        @NotBlank(
+                message = "First name must not be blank"
+        )
+        @Size(
+                max = 60,
+                message = "First name must not exceed 60 characters"
+        )
+        String firstName,
+
+        @NotBlank(
+                message = "Last name must not be blank"
+        )
+        @Size(
+                max = 60,
+                message = "Last name must not exceed 60 characters"
+        )
+        String lastName,
+
+        @NotBlank(
+                message = "Username must not be blank"
+        )
+        @Size(
+                min = 3,
+                max = 50,
+                message = "Username must be between 3 and 50 characters"
+        )
+        String username,
+
+        @NotBlank(
+                message = "Password must not be blank"
+        )
+        @Size(
+                min = 8,
+                max = 100,
+                message = "Password must be between 8 and 100 characters"
+        )
+        String password
+) {
+}
