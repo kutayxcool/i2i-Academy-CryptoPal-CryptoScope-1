@@ -5,7 +5,27 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
 
-        @NotBlank(message = "Username must not be blank")
+        @NotBlank(
+                message = "First name must not be blank"
+        )
+        @Size(
+                max = 60,
+                message = "First name must not exceed 60 characters"
+        )
+        String firstName,
+
+        @NotBlank(
+                message = "Last name must not be blank"
+        )
+        @Size(
+                max = 60,
+                message = "Last name must not exceed 60 characters"
+        )
+        String lastName,
+
+        @NotBlank(
+                message = "Username must not be blank"
+        )
         @Size(
                 min = 3,
                 max = 50,
@@ -13,7 +33,9 @@ public record RegisterRequest(
         )
         String username,
 
-        @NotBlank(message = "Password must not be blank")
+        @NotBlank(
+                message = "Password must not be blank"
+        )
         @Size(
                 min = 8,
                 max = 100,

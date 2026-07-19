@@ -2,128 +2,319 @@ package com.cryptoscope.core.marketdata;
 
 import com.cryptoscope.core.common.exception.MarketDataProviderException;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Component
 public class BinancePriceFeed implements PriceFeed {
 
-    private static final String BASE_URL =
-            "https://api.binance.com/api/v3/ticker/price?symbol=";
+    private static final String PRICE_URL =
+            "https://api.binance.com/api/v3/ticker/price";
 
-    private static final Pattern PRICE_PATTERN =
-            Pattern.compile("\"price\":\"([0-9.]+)\"");
+    private static final Duration REQUEST_TIMEOUT =
+            Duration.ofSeconds(5);
 
-    private static final Map<String, String> SYMBOL_MAP =
-            Map.of(
-                    "BTC", "BTCUSDT",
-                    "ETH", "ETHUSDT"
-            );
-
+    private final JsonMapper jsonMapper;
     private final HttpClient httpClient;
 
-    public BinancePriceFeed() {
+    public BinancePriceFeed(
+            JsonMapper jsonMapper
+    ) {
+        this.jsonMapper = jsonMapper;
+
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
+                .connectTimeout(REQUEST_TIMEOUT)
                 .build();
     }
 
     @Override
-    public BigDecimal getPrice(String symbol) {
-        String normalizedSymbol = normalizeSymbol(symbol);
-        String binanceSymbol = SYMBOL_MAP.get(normalizedSymbol);
+    public BigDecimal getPrice(
+            String symbol
+    ) {
+        SupportedAsset asset =
+                SupportedAsset.findBySymbol(symbol)
+                        .orElseThrow(
+                                () ->
+                                        new MarketDataProviderException(
+                                                "Unsupported market symbol: "
+                                                        + normalizeForMessage(
+                                                        symbol
+                                                )
+                                        )
+                        );
 
-        if (binanceSymbol == null) {
+        Map<String, BigDecimal> prices =
+                fetchPrices(List.of(asset));
+
+        BigDecimal price =
+                prices.get(asset.getSymbol());
+
+        if (price == null) {
             throw new MarketDataProviderException(
-                    "Unsupported market symbol: "
-                            + normalizedSymbol
+                    "Price was not returned for symbol "
+                            + asset.getSymbol()
             );
         }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(BASE_URL + binanceSymbol))
-                .timeout(Duration.ofSeconds(5))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
+        return price;
+    }
+
+    @Override
+    public Map<String, BigDecimal> getAllPrices() {
+        return fetchPrices(
+                Arrays.asList(
+                        SupportedAsset.values()
+                )
+        );
+    }
+
+    private Map<String, BigDecimal> fetchPrices(
+            Collection<SupportedAsset> assets
+    ) {
+        if (assets == null || assets.isEmpty()) {
+            throw new MarketDataProviderException(
+                    "At least one market symbol is required"
+            );
+        }
+
+        URI requestUri =
+                createRequestUri(assets);
+
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(requestUri)
+                        .timeout(REQUEST_TIMEOUT)
+                        .header(
+                                "Accept",
+                                "application/json"
+                        )
+                        .GET()
+                        .build();
 
         try {
             HttpResponse<String> response =
                     httpClient.send(
                             request,
-                            HttpResponse.BodyHandlers.ofString()
+                            HttpResponse.BodyHandlers
+                                    .ofString()
                     );
 
-            if (response.statusCode() < 200
-                    || response.statusCode() >= 300) {
-                throw new MarketDataProviderException(
-                        "Binance returned HTTP status "
-                                + response.statusCode()
-                                + " for symbol "
-                                + normalizedSymbol
-                );
-            }
+            validateResponseStatus(response);
 
-            Matcher matcher =
-                    PRICE_PATTERN.matcher(response.body());
-
-            if (!matcher.find()) {
-                throw new MarketDataProviderException(
-                        "Price was not found in the Binance response for symbol "
-                                + normalizedSymbol
-                );
-            }
-
-            return new BigDecimal(matcher.group(1));
+            return parsePrices(
+                    response.body(),
+                    assets
+            );
 
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
 
             throw new MarketDataProviderException(
-                    "Binance price request was interrupted for symbol "
-                            + normalizedSymbol,
+                    "Binance price request was interrupted",
                     exception
             );
 
         } catch (IOException exception) {
             throw new MarketDataProviderException(
-                    "Failed to retrieve the Binance price for symbol "
-                            + normalizedSymbol,
+                    "Failed to retrieve prices from Binance",
                     exception
             );
         }
     }
 
-    @Override
-    public Map<String, BigDecimal> getAllPrices() {
-        Map<String, BigDecimal> prices =
-                new LinkedHashMap<>();
+    private URI createRequestUri(
+            Collection<SupportedAsset> assets
+    ) {
+        List<String> binanceSymbols =
+                assets.stream()
+                        .map(
+                                SupportedAsset
+                                        ::getBinanceSymbol
+                        )
+                        .toList();
 
-        prices.put("BTC", getPrice("BTC"));
-        prices.put("ETH", getPrice("ETH"));
+        try {
+            String symbolsJson =
+                    jsonMapper.writeValueAsString(
+                            binanceSymbols
+                    );
 
-        return prices;
+            String encodedSymbols =
+                    URLEncoder.encode(
+                            symbolsJson,
+                            StandardCharsets.UTF_8
+                    );
+
+            return URI.create(
+                    PRICE_URL
+                            + "?symbols="
+                            + encodedSymbols
+            );
+
+        } catch (JacksonException exception) {
+            throw new MarketDataProviderException(
+                    "Failed to create the Binance price request",
+                    exception
+            );
+        }
     }
 
-    private String normalizeSymbol(String symbol) {
-        if (symbol == null || symbol.isBlank()) {
+    private void validateResponseStatus(
+            HttpResponse<String> response
+    ) {
+        if (
+                response.statusCode() < 200
+                        || response.statusCode() >= 300
+        ) {
             throw new MarketDataProviderException(
-                    "Market symbol must not be blank"
+                    "Binance returned HTTP status "
+                            + response.statusCode()
             );
+        }
+    }
+
+    private Map<String, BigDecimal> parsePrices(
+            String responseBody,
+            Collection<SupportedAsset> expectedAssets
+    ) {
+        try {
+            JsonNode root =
+                    jsonMapper.readTree(
+                            responseBody
+                    );
+
+            if (!root.isArray()) {
+                throw new MarketDataProviderException(
+                        "Binance price response must be an array"
+                );
+            }
+
+            Map<String, BigDecimal> prices =
+                    new LinkedHashMap<>();
+
+            for (JsonNode priceNode : root) {
+                String binanceSymbol =
+                        priceNode
+                                .path("symbol")
+                                .asText();
+
+                String priceText =
+                        priceNode
+                                .path("price")
+                                .asText();
+
+                SupportedAsset
+                        .findByBinanceSymbol(
+                                binanceSymbol
+                        )
+                        .ifPresent(asset -> {
+                            if (
+                                    priceText == null
+                                            || priceText.isBlank()
+                            ) {
+                                throw new MarketDataProviderException(
+                                        "Price was not returned for symbol "
+                                                + asset.getSymbol()
+                                );
+                            }
+
+                            BigDecimal price =
+                                    new BigDecimal(
+                                            priceText
+                                    );
+
+                            if (
+                                    price.compareTo(
+                                            BigDecimal.ZERO
+                                    ) <= 0
+                            ) {
+                                throw new MarketDataProviderException(
+                                        "Market price must be greater than zero for symbol "
+                                                + asset.getSymbol()
+                                );
+                            }
+
+                            prices.put(
+                                    asset.getSymbol(),
+                                    price
+                            );
+                        });
+            }
+
+            validateMissingPrices(
+                    prices,
+                    expectedAssets
+            );
+
+            return prices;
+
+        } catch (JacksonException exception) {
+            throw new MarketDataProviderException(
+                    "Failed to parse the Binance price response",
+                    exception
+            );
+
+        } catch (NumberFormatException exception) {
+            throw new MarketDataProviderException(
+                    "Binance returned an invalid market price",
+                    exception
+            );
+        }
+    }
+
+    private void validateMissingPrices(
+            Map<String, BigDecimal> prices,
+            Collection<SupportedAsset> expectedAssets
+    ) {
+        List<String> missingSymbols =
+                expectedAssets.stream()
+                        .map(
+                                SupportedAsset::getSymbol
+                        )
+                        .filter(
+                                symbol ->
+                                        !prices.containsKey(
+                                                symbol
+                                        )
+                        )
+                        .toList();
+
+        if (!missingSymbols.isEmpty()) {
+            throw new MarketDataProviderException(
+                    "Binance did not return prices for symbols: "
+                            + missingSymbols.stream()
+                            .collect(
+                                    Collectors.joining(", ")
+                            )
+            );
+        }
+    }
+
+    private String normalizeForMessage(
+            String symbol
+    ) {
+        if (symbol == null) {
+            return "null";
         }
 
         return symbol.trim()
-                .toUpperCase(Locale.ROOT);
+                .toUpperCase();
     }
 }
